@@ -1,0 +1,9 @@
+dependencies:
+- name: nebari-app
+  repository: oci://quay.io/nebari/charts
+  version: 0.1.1
+- name: podinfo
+  repository: oci://ghcr.io/stefanprodan/charts
+  version: 6.10.1
+digest: sha256:e73d977132fbbb002d2cec54cffe94d7d3f4212b9ec66f87060692612d3ee066
+generated: "2026-09-30T15:00:55.665759533Z"
