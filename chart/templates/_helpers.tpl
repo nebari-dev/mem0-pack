@@ -22,9 +22,14 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- default .Values.adminKey.secretName .Values.adminKey.existingSecret -}}
 {{- end -}}
 
+{{/* CloudNativePG derives Services <cluster>-rw, -ro and -r from this, so keep it short enough for a 63 character DNS label. */}}
+{{- define "nebari-mem0.dbCluster" -}}
+{{- printf "%s-db" (include "nebari-mem0.fullname" . | trunc 50 | trimSuffix "-") -}}
+{{- end -}}
+
 {{- define "nebari-mem0.dbSecret" -}}
 {{- if .Values.postgres.bundled.enabled -}}
-{{- printf "%s-db-app" (include "nebari-mem0.fullname" .) -}}
+{{- printf "%s-app" (include "nebari-mem0.dbCluster" .) -}}
 {{- else -}}
 {{- required "postgres.external.existingSecret is required when postgres.bundled.enabled is false" .Values.postgres.external.existingSecret -}}
 {{- end -}}

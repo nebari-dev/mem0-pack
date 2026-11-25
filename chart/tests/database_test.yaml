@@ -60,3 +60,21 @@ tests:
     set: {postgres.bundled.enabled: false, postgres.external.existingSecret: ext}
     asserts:
       - hasDocuments: {count: 0}
+---
+suite: database name limits
+templates:
+  - templates/database.yaml
+  - templates/deployment.yaml
+release: {name: a-very-long-release-name-that-is-exactly-fifty-chars}
+tests:
+  - it: keeps the Cluster name short enough for its derived Services
+    values: [required-values.yaml]
+    asserts:
+      - matchRegex:
+          path: metadata.name
+          pattern: ^.{1,60}$
+        template: templates/database.yaml
+      - equal:
+          path: "spec.template.spec.initContainers[0].env[0].valueFrom.secretKeyRef.name"
+          value: a-very-long-release-name-that-is-exactly-fifty-cha-db-app
+        template: templates/deployment.yaml

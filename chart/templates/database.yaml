@@ -2,7 +2,7 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: {{ include "nebari-mem0.fullname" . }}-db
+  name: {{ include "nebari-mem0.dbCluster" . }}
   labels:
     {{- include "nebari-mem0.labels" . | nindent 4 }}
 spec:
