@@ -2,6 +2,33 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "required": ["models", "callers"],
+  "if": {
+    "required": ["postgres"],
+    "properties": {
+      "postgres": {
+        "required": ["bundled"],
+        "properties": {
+          "bundled": {
+            "required": ["enabled"],
+            "properties": {"enabled": {"const": false}}
+          }
+        }
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "postgres": {
+        "required": ["external"],
+        "properties": {
+          "external": {
+            "required": ["existingSecret"],
+            "properties": {"existingSecret": {"type": "string", "minLength": 1}}
+          }
+        }
+      }
+    }
+  },
   "properties": {
     "callers": {
       "type": "array",

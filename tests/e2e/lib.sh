@@ -9,12 +9,23 @@ RELEASE=mem0
 FULL=mem0-nebari-mem0
 KEY_SECRET=mem0-admin-key
 CALLER_NS=tapas-sim
+DB_CLUSTER="${FULL}-db"
 MEM0_URL="http://${FULL}.${NS}.svc:8000"
 FAKE_MODEL_URL="http://fake-model.fake-model.svc:8080"
 E2E_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHART_DIR="$(cd "$E2E_DIR/../../chart" && pwd)"
 
 k() { kubectl --context "$CONTEXT" "$@"; }
+
+# use_release <namespace> <release> [database cluster]: point every helper at another release of
+# the chart. The defaults above describe release mem0 in namespace mem0.
+use_release() {
+  NS="$1"
+  RELEASE="$2"
+  FULL="${2}-nebari-mem0"
+  DB_CLUSTER="${3:-${FULL}-db}"
+  MEM0_URL="http://${FULL}.${NS}.svc:8000"
+}
 
 # step <journey> <description>: announce a step; fail <journey> <message>: abort naming the journey.
 step() { echo "--- journey $1: $2"; }
@@ -96,9 +107,9 @@ root_mount_is_ro() {
 status_of() { head -1 <<<"$1"; }
 body_of() { tail -n +2 <<<"$1"; }
 
-# wait_ready: the bundled database and the mem0 Deployment are up (journey 1 timing: 5 minutes).
+# wait_ready: the database (bundled, or the external one named by use_release) and the mem0 Deployment are up (journey 1 timing: 5 minutes).
 wait_ready() {
-  k -n "$NS" wait --for=condition=Ready "cluster.postgresql.cnpg.io/${FULL}-db" --timeout=300s
+  k -n "$NS" wait --for=condition=Ready "cluster.postgresql.cnpg.io/${DB_CLUSTER}" --timeout=300s
   k -n "$NS" rollout status "deploy/${FULL}" --timeout=300s
 }
 

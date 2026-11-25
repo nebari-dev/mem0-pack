@@ -60,6 +60,15 @@ tests:
     set: {postgres.bundled.enabled: false, postgres.external.existingSecret: ext}
     asserts:
       - hasDocuments: {count: 0}
+
+  - it: renders no Cluster when bundled is disabled, whatever else is set
+    values: [required-values.yaml]
+    set:
+      postgres.bundled.enabled: false
+      postgres.external.existingSecret: ext-db-app
+      postgres.bundled.instances: 3
+    asserts:
+      - hasDocuments: {count: 0}
 ---
 suite: database name limits
 templates:
