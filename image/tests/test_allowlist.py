@@ -57,15 +57,16 @@ SEARCH_OK = json.dumps({"query": "q", "filters": {"user_id": "alice"}}).encode()
 @pytest.mark.parametrize(
     "method,target,body",
     [
-        ("POST", "/memories", b'{"messages":[{"role":"user","content":"hi"}],"user_id":"a"}'),
+        ("POST", "/memories", b'{"messages":[{"role":"user","content":"hi"}],"user_id":"alice"}'),
+        ("POST", "/memories", b'{"messages":[],"user_id":"alice","agent_id":"h","run_id":"r"}'),
         ("GET", "/memories?user_id=alice", None),
-        ("GET", "/memories?agent_id=helper&top_k=5", None),
-        ("GET", "/memories?run_id=r1&show_expired=true", None),
+        ("GET", "/memories?user_id=alice&agent_id=helper&top_k=5", None),
+        ("GET", "/memories?user_id=a&run_id=r1&show_expired=true", None),
         ("GET", f"/memories/{UID}", None),
         ("DELETE", f"/memories/{UID}", None),
         ("POST", "/search", SEARCH_OK),
         ("POST", "/search", b'{"query":"q","user_id":"alice"}'),
-        ("POST", "/search", b'{"query":"q","agent_id":"a","filters":{"run_id":"r"}}'),
+        ("POST", "/search", b'{"query":"q","user_id":"a","filters":{"run_id":"r"}}'),
         ("POST", "/search", b'{"query":"q","filters":{"user_id":"alice"},"top_k":3}'),
     ],
 )
@@ -135,6 +136,19 @@ BAD_REQUEST = [
     ("GET", "/memories?user_id=a&AND=x", None),
     ("GET", "/memories?user_id=a&agent_id=", None),
     ("GET", "/memories?top_k=5", None),
+    ("GET", "/memories?agent_id=helper", None),
+    ("GET", "/memories?run_id=r1", None),
+    ("GET", "/memories?agent_id=helper&run_id=r1&top_k=3", None),
+    ("POST", "/memories", j({"messages": []})),
+    ("POST", "/memories", j({"messages": [], "agent_id": "h"})),
+    ("POST", "/memories", j({"messages": [], "user_id": "*"})),
+    ("POST", "/memories", j({"messages": [], "user_id": ""})),
+    ("POST", "/memories", j({"messages": [], "user_id": "a", "run_id": "*"})),
+    ("POST", "/memories", b"not json"),
+    ("POST", "/memories", b""),
+    ("POST", "/search", j({"query": "q", "filters": {"agent_id": "helper"}})),
+    ("POST", "/search", j({"query": "q", "agent_id": "helper"})),
+    ("POST", "/search", j({"query": "q", "run_id": "r"})),
     ("GET", "/memories?%75ser_id=a&user_id=b", None),
     ("GET", "/memories?user_id=a&top_k=1&top_k=2", None),
     ("POST", "/search", j({"query": "q"})),
@@ -173,7 +187,9 @@ def test_unscoped_or_malformed_is_400_and_app_not_called(client, app, method, ta
 
 
 def test_body_at_cap_is_accepted(client, app):
-    body = b"x" * MAX_BODY
+    prefix, suffix = b'{"user_id":"a","pad":"', b'"}'
+    body = prefix + b"x" * (MAX_BODY - len(prefix) - len(suffix)) + suffix
+    assert len(body) == MAX_BODY
     resp = send(client, "POST", "/memories", body)
     assert resp.status_code == 200
     assert resp.content == body
@@ -195,6 +211,31 @@ def test_non_http_scopes_pass_through(app, scope_type):
 
     asyncio.run(run())
     assert app.calls == [(scope_type, None, None)]
+
+
+def test_later_receive_calls_go_to_the_original_receive():
+    import asyncio
+
+    results = []
+
+    async def downstream(scope, receive, send):
+        results.append(await receive())  # the replayed body
+        results.append(await receive())  # must come from the original receive
+
+    original = iter(
+        [
+            {"type": "http.request", "body": b'{"user_id":"a"}', "more_body": False},
+            {"type": "http.request", "body": b"streamed", "more_body": True},
+        ]
+    )
+
+    async def rcv():
+        return next(original)
+
+    scope = {"type": "http", "method": "POST", "path": "/memories", "query_string": b""}
+    asyncio.run(Allowlist(downstream)(scope, rcv, None))
+    assert results[0] == {"type": "http.request", "body": b'{"user_id":"a"}', "more_body": False}
+    assert results[1] == {"type": "http.request", "body": b"streamed", "more_body": True}
 
 
 def test_missing_raw_path_falls_back_to_path(app):
@@ -229,11 +270,10 @@ def test_custom_rules_are_used(app):
 
 def test_default_rules_cover_exactly_the_table():
     assert {(r.method, r.scope) for r in RULES} == {
-        ("POST", "none"),
+        ("POST", "body"),
         ("GET", "query"),
         ("GET", "none"),
         ("DELETE", "none"),
-        ("POST", "body"),
     }
     assert len(RULES) == 5
 
@@ -242,7 +282,9 @@ def test_default_rules_cover_exactly_the_table():
     "params,ok",
     [
         ([("user_id", "a")], True),
-        ([("run_id", "r"), ("top_k", "3"), ("show_expired", "false")], True),
+        ([("user_id", "u"), ("run_id", "r"), ("top_k", "3"), ("show_expired", "false")], True),
+        ([("run_id", "r")], False),
+        ([("agent_id", "a")], False),
         ([], False),
         ([("user_id", "")], False),
         ([("user_id", "*")], False),
@@ -261,12 +303,15 @@ def test_scope_error_query(params, ok):
         ({"query": "q", "filters": {"user_id": "a"}}, True),
         ({"query": "q", "user_id": "a"}, True),
         ({"query": "q", "user_id": "a", "filters": {"agent_id": "b"}}, True),
-        ({"query": "q", "user_id": None, "filters": {"agent_id": "b"}}, True),
-        ({"query": "q", "filters": None, "run_id": "r"}, True),
+        ({"query": "q", "user_id": None, "filters": {"user_id": "u", "agent_id": "b"}}, True),
+        ({"query": "q", "user_id": None, "filters": {"agent_id": "b"}}, False),
+        ({"query": "q", "filters": None, "user_id": "u", "run_id": "r"}, True),
         ({"query": "q"}, False),
         ({"query": "q", "filters": {"user_id": "a", "AND": []}}, False),
         ({"query": "q", "filters": {"user_id": {"eq": "a"}}}, False),
         ({"query": "q", "run_id": "*"}, False),
+        ({"query": "q", "agent_id": "a"}, False),
+        ({"query": "q", "filters": {"run_id": "r"}}, False),
     ],
 )
 def test_scope_error_body(body, ok):

@@ -26,7 +26,7 @@ class Rule:
 
 
 RULES: tuple[Rule, ...] = (
-    Rule("POST", re.compile(r"/memories\Z"), "none"),
+    Rule("POST", re.compile(r"/memories\Z"), "body"),
     Rule("GET", re.compile(r"/memories\Z"), "query"),
     Rule("GET", re.compile(rf"/memories/{_UUID}\Z"), "none"),
     Rule("DELETE", re.compile(rf"/memories/{_UUID}\Z"), "none"),
@@ -54,16 +54,16 @@ def scope_error_query(params: list[tuple[str, str]]) -> str | None:
         seen.add(key)
         if key in SCOPE_KEYS and (err := _value_error(key, value)):
             return err
-    if not seen.intersection(SCOPE_KEYS):
-        return "one of user_id, agent_id or run_id is required"
+    if "user_id" not in seen:
+        return "user_id is required"
     return None
 
 
 def scope_error_body(body: dict) -> str | None:
-    """Return why a POST /search body is not scoped, or None when it is.
+    """Return why a POST /memories or /search body is not scoped, or None when it is.
 
-    Top-level user_id/agent_id/run_id (deprecated in mem0) and `filters` follow the same
-    rules; null counts as absent, as it does in mem0.
+    A user_id is required; agent_id and run_id only narrow it. Top-level user_id/agent_id/run_id
+    and `filters` (search) follow the same rules; null counts as absent, as it does in mem0.
     """
     present: set[str] = set()
     for key in SCOPE_KEYS:
@@ -83,8 +83,8 @@ def scope_error_body(body: dict) -> str | None:
             if err := _value_error(f"filters.{key}", value):
                 return err
             present.add(key)
-    if not present:
-        return "one of user_id, agent_id or run_id is required"
+    if "user_id" not in present:
+        return "user_id is required"
     return None
 
 
@@ -129,7 +129,7 @@ class Allowlist:
         if rule.scope == "body" and (err := self._body_error(body)):
             await self._bad_request(send, err)
             return
-        await self.app(scope, self._replay(body), send)
+        await self.app(scope, self._replay(body, receive), send)
 
     def _match(self, scope) -> Rule | None:
         path = scope["path"]
@@ -171,7 +171,8 @@ class Allowlist:
         return b"".join(chunks)
 
     @staticmethod
-    def _replay(body: bytes):
+    def _replay(body: bytes, original):
+        """Serve the buffered body once, then defer to the real receive (disconnects, etc.)."""
         sent = False
 
         async def receive():
@@ -179,7 +180,7 @@ class Allowlist:
             if not sent:
                 sent = True
                 return {"type": "http.request", "body": body, "more_body": False}
-            return {"type": "http.disconnect"}
+            return await original()
 
         return receive
 
