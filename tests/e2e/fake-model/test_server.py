@@ -7,7 +7,6 @@ import urllib.parse
 import urllib.request
 
 import pytest
-
 import server
 
 
@@ -33,7 +32,7 @@ def test_embed_ranks_shared_words_higher():
 
 PROMPT = (
     "## Summary\n\n## Last k Messages\n\n## Recently Extracted Memories\n[]\n"
-    "## Existing Memories\n[{\"id\": \"1\", \"text\": \"user: old fact\"}]\n"
+    '## Existing Memories\n[{"id": "1", "text": "user: old fact"}]\n'
     "## New Messages\n%s\n## Observation Date\n2026-01-01\n## Current Date\n2026-01-01\n"
 )
 
@@ -43,7 +42,10 @@ PROMPT = (
     [
         ("user: Alice likes green tea\n", ["Alice likes green tea"]),
         ("user: one\nassistant: ok\nuser: two\n", ["one", "two"]),
-        ("system: be nice\nuser: multi\nline text\nassistant: hi\n", ["multi line text"]),
+        (
+            "system: be nice\nuser: multi\nline text\nassistant: hi\n",
+            ["multi line text"],
+        ),
         ("assistant: only assistant\n", []),
     ],
 )
@@ -61,7 +63,7 @@ def run_server():
         httpd = server.make_server("127.0.0.1", 0, server.Config(**cfg))
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         servers.append(httpd)
-        return "http://127.0.0.1:%d" % httpd.server_address[1]
+        return f"http://127.0.0.1:{httpd.server_address[1]}"
 
     yield start
     for s in servers:
@@ -91,7 +93,11 @@ def call(url, body=None, token=None, form=None):
 def get_token(base, secret="secret"):
     return call(
         base + "/token",
-        form={"grant_type": "client_credentials", "client_id": "mem0", "client_secret": secret},
+        form={
+            "grant_type": "client_credentials",
+            "client_id": "mem0",
+            "client_secret": secret,
+        },
     )
 
 
@@ -109,9 +115,16 @@ def test_token_endpoint(run_server):
     base = run_server()
     status, body = get_token(base)
     assert status == 200
-    assert body["token_type"] == "Bearer" and body["expires_in"] == 20 and body["access_token"]
+    assert (
+        body["token_type"] == "Bearer"
+        and body["expires_in"] == 20
+        and body["access_token"]
+    )
     assert get_token(base, "wrong")[0] == 401
-    status, _ = call(base + "/token", form={"grant_type": "password", "client_id": "mem0", "client_secret": "secret"})
+    status, _ = call(
+        base + "/token",
+        form={"grant_type": "password", "client_id": "mem0", "client_secret": "secret"},
+    )
     assert status == 400 or status == 401
 
 
@@ -132,9 +145,15 @@ def test_require_token_false_allows_anonymous(run_server):
 def test_expired_token_rejected(run_server):
     base = run_server(token_ttl=1)
     _, tok = get_token(base)
-    assert call(base + "/v1/embeddings", {"input": "x"}, token=tok["access_token"])[0] == 200
+    assert (
+        call(base + "/v1/embeddings", {"input": "x"}, token=tok["access_token"])[0]
+        == 200
+    )
     time.sleep(1.2)
-    assert call(base + "/v1/embeddings", {"input": "x"}, token=tok["access_token"])[0] == 401
+    assert (
+        call(base + "/v1/embeddings", {"input": "x"}, token=tok["access_token"])[0]
+        == 401
+    )
 
 
 def test_calls_log_records_token_validity(run_server):
@@ -144,7 +163,10 @@ def test_calls_log_records_token_validity(run_server):
     call(base + "/v1/embeddings", {"input": "x"}, token="bogus")
     _, calls = call(base + "/calls")
     emb = [c for c in calls if c["path"] == "/v1/embeddings"]
-    assert [(c["token"], c["valid"]) for c in emb] == [(tok["access_token"], True), ("bogus", False)]
+    assert [(c["token"], c["valid"]) for c in emb] == [
+        (tok["access_token"], True),
+        ("bogus", False),
+    ]
     assert all("at" in c for c in calls)
     assert "secret" not in json.dumps(calls)
 
@@ -164,11 +186,15 @@ def test_chat_returns_memory_json(run_server):
 def test_embeddings_shape(run_server, inp, n):
     base = run_server(dims=8)
     _, tok = get_token(base)
-    status, body = call(base + "/v1/embeddings", {"input": inp, "model": "e"}, token=tok["access_token"])
+    status, body = call(
+        base + "/v1/embeddings", {"input": inp, "model": "e"}, token=tok["access_token"]
+    )
     assert status == 200
     assert body["object"] == "list" and body["model"] == "e"
     assert [d["index"] for d in body["data"]] == list(range(n))
-    assert all(len(d["embedding"]) == 8 and d["object"] == "embedding" for d in body["data"])
+    assert all(
+        len(d["embedding"]) == 8 and d["object"] == "embedding" for d in body["data"]
+    )
 
 
 def test_embeddings_base64(run_server):

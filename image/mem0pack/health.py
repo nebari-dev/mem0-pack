@@ -16,7 +16,11 @@ class Health:
         self.timeout = timeout
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] == "http" and scope["method"] == "GET" and scope["path"] in ("/healthz", "/readyz"):
+        if (
+            scope["type"] == "http"
+            and scope["method"] == "GET"
+            and scope["path"] in ("/healthz", "/readyz")
+        ):
             if scope["path"] == "/healthz" or await self._is_ready():
                 await self._respond(send, 200, _OK)
             else:
@@ -28,7 +32,8 @@ class Health:
         """Run the blocking ready check off the event loop; a timeout or error means not ready."""
         try:
             return bool(await asyncio.wait_for(asyncio.to_thread(self.ready), self.timeout))
-        except Exception:
+        # Any failure at all means not ready; a probe must report that, not crash.
+        except Exception:  # noqa: BLE001
             return False
 
     @staticmethod

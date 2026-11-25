@@ -68,7 +68,8 @@ def build_app(server_main: ModuleType):
             with server_main.SessionLocal() as session:
                 session.execute(sa.text("SELECT 1"))
             return True
-        except Exception:
+        # Any failure at all means not ready; a probe must report that, not crash.
+        except Exception:  # noqa: BLE001
             return False
 
     return Health(server_main.app, ready=ready)

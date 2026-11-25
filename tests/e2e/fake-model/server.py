@@ -2,6 +2,7 @@
 
 Stdlib only. Not for production use.
 """
+
 import base64
 import hashlib
 import json
@@ -17,8 +18,42 @@ from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 STOP_WORDS = frozenset(
-    "a an and are as at be by do does did for from has have in is it of on or that the "
-    "this to was were what when where which who why with".split()
+    [
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "by",
+        "do",
+        "does",
+        "did",
+        "for",
+        "from",
+        "has",
+        "have",
+        "in",
+        "is",
+        "it",
+        "of",
+        "on",
+        "or",
+        "that",
+        "the",
+        "this",
+        "to",
+        "was",
+        "were",
+        "what",
+        "when",
+        "where",
+        "which",
+        "who",
+        "why",
+        "with",
+    ]
 )
 
 
@@ -47,7 +82,11 @@ def extract_memories(user_prompt):
     mem0 renders that section as lines of `role: content` (mem0/memory/utils.py parse_messages).
     A line without a role prefix continues the previous message.
     """
-    m = re.search(r"^## New Messages\n(.*?)(?=^## Observation Date\n|\Z)", user_prompt, re.S | re.M)
+    m = re.search(
+        r"^## New Messages\n(.*?)(?=^## Observation Date\n|\Z)",
+        user_prompt,
+        re.DOTALL | re.MULTILINE,
+    )
     if not m:
         return []
     msgs = []  # [role, text]
@@ -128,7 +167,15 @@ def make_handler(cfg):
                     }
                 )
             if cfg.require_token and not valid:
-                self._send(401, {"error": {"message": "invalid or expired token", "type": "invalid_request_error"}})
+                self._send(
+                    401,
+                    {
+                        "error": {
+                            "message": "invalid or expired token",
+                            "type": "invalid_request_error",
+                        }
+                    },
+                )
                 return False
             return True
 
@@ -162,15 +209,22 @@ def make_handler(cfg):
             form = {k: v[0] for k, v in urllib.parse.parse_qs(raw.decode()).items()}
             if form.get("grant_type") != "client_credentials":
                 return self._send(400, {"error": "unsupported_grant_type"})
-            ok = secrets.compare_digest(form.get("client_id", ""), cfg.client_id) & secrets.compare_digest(
-                form.get("client_secret", ""), cfg.client_secret
-            )
+            ok = secrets.compare_digest(
+                form.get("client_id", ""), cfg.client_id
+            ) & secrets.compare_digest(form.get("client_secret", ""), cfg.client_secret)
             if not ok:
                 return self._send(401, {"error": "invalid_client"})
             token = secrets.token_urlsafe(24)
             with cfg.lock:
                 cfg.tokens[token] = time.monotonic() + cfg.token_ttl
-            self._send(200, {"access_token": token, "token_type": "Bearer", "expires_in": cfg.token_ttl})
+            self._send(
+                200,
+                {
+                    "access_token": token,
+                    "token_type": "Bearer",
+                    "expires_in": cfg.token_ttl,
+                },
+            )
 
         def _embeddings(self, req):
             inp = req.get("input", "")
@@ -180,7 +234,7 @@ def make_handler(cfg):
             for i, t in enumerate(texts):
                 v = embed(t, cfg.dims)
                 if b64:
-                    v = base64.b64encode(struct.pack("<%df" % len(v), *v)).decode()
+                    v = base64.b64encode(struct.pack(f"<{len(v)}f", *v)).decode()
                 data.append({"object": "embedding", "index": i, "embedding": v})
             n = sum(_tokens_estimate(t) for t in texts)
             self._send(
@@ -201,7 +255,9 @@ def make_handler(cfg):
                     c = m.get("content")
                     user = c if isinstance(c, str) else json.dumps(c)
                     break
-            content = json.dumps({"memory": [{"text": t} for t in extract_memories(user)]})
+            content = json.dumps(
+                {"memory": [{"text": t} for t in extract_memories(user)]}
+            )
             p = sum(_tokens_estimate(str(m.get("content", ""))) for m in msgs)
             c = _tokens_estimate(content)
             self._send(
@@ -212,9 +268,17 @@ def make_handler(cfg):
                     "created": int(time.time()),
                     "model": req.get("model", "fake-chat"),
                     "choices": [
-                        {"index": 0, "message": {"role": "assistant", "content": content}, "finish_reason": "stop"}
+                        {
+                            "index": 0,
+                            "message": {"role": "assistant", "content": content},
+                            "finish_reason": "stop",
+                        }
                     ],
-                    "usage": {"prompt_tokens": p, "completion_tokens": c, "total_tokens": p + c},
+                    "usage": {
+                        "prompt_tokens": p,
+                        "completion_tokens": c,
+                        "total_tokens": p + c,
+                    },
                 },
             )
 
@@ -228,4 +292,6 @@ def make_server(host, port, cfg):
 
 
 if __name__ == "__main__":
-    make_server("0.0.0.0", int(os.environ.get("PORT", "8080")), config_from_env()).serve_forever()
+    make_server(
+        "0.0.0.0", int(os.environ.get("PORT", "8080")), config_from_env()
+    ).serve_forever()

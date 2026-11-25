@@ -43,7 +43,13 @@ def test_readyz_reflects_ready(ready, status, body):
 
 @pytest.mark.parametrize(
     "method,path",
-    [("GET", "/"), ("GET", "/healthz/"), ("GET", "/healthz/x"), ("POST", "/healthz"), ("POST", "/readyz")],
+    [
+        ("GET", "/"),
+        ("GET", "/healthz/"),
+        ("GET", "/healthz/x"),
+        ("POST", "/healthz"),
+        ("POST", "/readyz"),
+    ],
 )
 def test_health_passes_other_paths_through(method, path):
     app = DummyApp()
