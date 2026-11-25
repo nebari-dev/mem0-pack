@@ -16,11 +16,7 @@ spec:
     helm:
       valuesObject:
         # The contents of examples/nebari-values.yaml, with the placeholders filled in.
-        image:
-          tag: ""        # CHANGE, for example sha-0123456789abcdef
-        tools:
-          image:
-            tag: ""      # CHANGE, same tag as above
+        # No image tags: the published chart's release pins them to the release commit.
         callers:
           - namespace: javo
             serviceAccount: javo-gateway
@@ -40,13 +36,37 @@ spec:
             tokenURL: https://keycloak.CHANGE.example.com/realms/nebari/protocol/openid-connect/token
             # Secret in the release namespace with keys client-id and client-secret, created before install.
             existingSecret: mem0-model-client
-    # Git source alternative, from a checkout of this repository (set image tags in the values):
+    # Git source alternative until #12 publishes a chart. Replace the whole source block above with
+    # this one. A checkout has no pinned image tags, so set both to images CI pushed for that commit.
     # repoURL: https://github.com/nebari-dev/mem0-pack
     # path: chart
-    # targetRevision: main
+    # targetRevision: main   # CHANGE to the commit the tags below were built from
     # helm:
-    #   valueFiles:
-    #     - ../examples/nebari-values.yaml
+    #   valuesObject:
+    #     image:
+    #       tag: sha-0123456789abcdef   # CHANGE
+    #     tools:
+    #       image:
+    #         tag: sha-0123456789abcdef   # CHANGE
+    #     callers:
+    #       - namespace: javo
+    #         serviceAccount: javo-gateway
+    #         podSelector:
+    #           app.kubernetes.io/name: javo
+    #           app.kubernetes.io/component: gateway
+    #     models:
+    #       # llm-serving-pack's internal endpoint, with the /v1 prefix.
+    #       baseURL: https://llm-internal.CHANGE.example.com/v1
+    #       llm: CHANGE-chat-model
+    #       embedding:
+    #         model: CHANGE-embedding-model
+    #         # The output width of the embedding model. Fixed at first install.
+    #         dimensions: 1024
+    #       auth:
+    #         # Keycloak token endpoint of the realm that holds the mem0 client.
+    #         tokenURL: https://keycloak.CHANGE.example.com/realms/nebari/protocol/openid-connect/token
+    #         # Secret in the release namespace with keys client-id and client-secret, created before install.
+    #         existingSecret: mem0-model-client
   destination:
     server: https://kubernetes.default.svc
     namespace: mem0

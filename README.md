@@ -61,15 +61,17 @@ is responsible for scoping each request to the right person.
 ## Install
 
 Copy `examples/nebari-values.yaml` to `my-values.yaml` and change the placeholders: model
-endpoint, model names, embedding dimension, Keycloak token URL, Secret name and image tags. Then,
-from a checkout of this repository:
+endpoint, model names, embedding dimension, Keycloak token URL and Secret name. Then, from a
+checkout of this repository, with both image tags set (see below):
 
 ```sh
-helm install mem0 ./chart -n mem0 -f my-values.yaml
+helm install mem0 ./chart -n mem0 -f my-values.yaml \
+  --set image.tag=sha-<commit> --set tools.image.tag=sha-<commit>
 ```
 
-With no published release there are no default image tags. Set `image.tag` and `tools.image.tag`
-to images you built or that CI pushed (`sha-<commit>`). `examples/argocd-app.yaml` is the same
+A checkout has no pinned image tags, so from a checkout you must set `image.tag` and
+`tools.image.tag` to images CI pushed for that commit (`sha-<commit>`). Once #12 publishes the
+chart, the release pins them and you leave them unset. `examples/argocd-app.yaml` is the same
 install as an Argo CD Application.
 
 Check it came up:

@@ -2,13 +2,14 @@
 # the namespace "javo". Change the placeholders marked CHANGE; leave the rest.
 # Install: helm install mem0 ./chart -n mem0 --create-namespace -f my-values.yaml
 
-# No chart version is published yet (#12), so there are no default image tags. Set the tags of
-# images you built or that CI pushed (sha-<commit>). A published release pins these for you.
-image:
-  tag: ""        # CHANGE, for example sha-0123456789abcdef
-tools:
-  image:
-    tag: ""      # CHANGE, same tag as above
+# Image tags are not set here: the published chart pins them to the release commit. When you
+# install from a checkout (no chart is published until #12), the chart has no pinned tags, so set
+# both to images CI pushed for that commit:
+# image:
+#   tag: sha-0123456789abcdef
+# tools:
+#   image:
+#     tag: sha-0123456789abcdef
 
 # Who may call mem0 and read the admin key Secret. For Tapas as javo-pack:
 callers:
