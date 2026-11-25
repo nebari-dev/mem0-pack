@@ -88,23 +88,41 @@ found="$(curl -s -X POST "$BASE/search" -H "X-API-Key: $API_KEY" -H 'Content-Typ
 echo "$found" | grep -q 'hiking' || { docker logs "$SERVER" >&2; fail "search did not find the memory: $found"; }
 echo "memory added and found"
 
+echo "== allowlist"
+status() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+expect_status() {
+  local want="$1" got; shift
+  got="$(status "$@")"
+  [ "$got" = "$want" ] || { docker logs "$SERVER" >&2; fail "expected $want, got $got: $*"; }
+}
+for path in /auth/register /configure /reset; do
+  expect_status 404 -X POST "$BASE$path" -H "X-API-Key: $API_KEY" \
+    -H 'Content-Type: application/json' -d '{}'
+done
+expect_status 400 "$BASE/memories?user_id=*" -H "X-API-Key: $API_KEY"
+expect_status 401 "$BASE/memories?user_id=alice"
+echo "allowlist refuses unlisted paths, wildcards and keyless calls"
+
 docker rm -f "$SERVER" >/dev/null
 
 run_server_expect_exit() {
-  local label="$1" out rc=0
+  local label="$1" want="$2" out rc=0
   out="$(timeout 120 docker run --rm --name "$SERVER-$label" --network "$NET" "${ro_args[@]}" \
     "${env_args[@]}" "$IMAGE" 2>&1)" || rc=$?
   echo "-- $label: exit $rc"
   echo "$out" | tail -n 8
   [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] || fail "$label: server should exit non-zero (rc=$rc)"
+  # the config row is checked before mem0's main is imported (its import logs "Using psycopg")
+  if echo "$out" | grep -q 'Using psycopg'; then fail "$label: mem0 was imported before the check"; fi
+  echo "$out" | grep -q "$want" || fail "$label: expected message '$want'"
 }
 
 echo "== tampered config_overrides"
 psql_super -d mem0 -c "UPDATE settings SET value='{}' WHERE key='config_overrides'" >/dev/null
-run_server_expect_exit tampered
+run_server_expect_exit tampered 'config_overrides differs from pack settings'
 
 echo "== missing config_overrides"
 psql_super -d mem0 -c "DELETE FROM settings WHERE key='config_overrides'" >/dev/null
-run_server_expect_exit missing
+run_server_expect_exit missing 'config_overrides is missing'
 
 echo "SMOKE OK"
