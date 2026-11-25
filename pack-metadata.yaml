@@ -1,0 +1,14 @@
+# Nebari software pack metadata, consumed by software-pack-dashboard.
+# Schema: https://raw.githubusercontent.com/nebari-dev/software-pack-dashboard/main/schema/pack-metadata.schema.json
+name: mem0-pack
+display_name: mem0 Pack
+level: experimental
+owner: dcmcand
+deprecated: false
+# mem0 is an internal API for other services (such as Tapas) to call. It has no
+# user-facing route, so it does not use a NebariApp.
+nebariapp_integration: none
+scope:
+  standalone-supported: yes
+demo_notes: "Experimental: not installable yet. Do not demo."
+docs_site: false
