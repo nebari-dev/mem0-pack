@@ -1,7 +1,8 @@
 """ASGI middleware admitting only the mem0 endpoints Tapas uses, each scoped to a person.
 
 mem0 has no per-user access control, so this is the pack's main security control: anything
-not listed in RULES is a 404, and list and search calls must name a literal user, agent or run.
+not listed in RULES is a 404, and every add, list and search must name a literal user_id
+(agent_id and run_id only narrow it).
 """
 
 import json
@@ -115,7 +116,7 @@ class _TooLarge(Exception):
 
 
 class Allowlist:
-    """Pass only RULES through to the wrapped app; 404 the rest, 400 unscoped list and search."""
+    """Pass only RULES through to the wrapped app; 404 the rest, 400 unscoped add, list and search."""
 
     def __init__(self, app, rules: Sequence[Rule] = RULES):
         self.app = app
