@@ -140,7 +140,7 @@ callers: []   # required; for Tapas installed as javo-pack:
 #    serviceAccount: javo-gateway
 #    podSelector: {app.kubernetes.io/name: javo, app.kubernetes.io/component: gateway}
 models:
-  baseURL: https://llm-internal.example.com/v1    # llm-serving-pack internal endpoint
+  baseURL: ""   # required: llm-serving-pack internal endpoint, including /v1
   llm: Qwen/Qwen3.5-35B-A3B-GPTQ-Int4
   embedding: {model: "", dimensions: null}
   auth: {tokenURL: "", scope: "", existingSecret: ""}  # Secret keys client-id, client-secret
