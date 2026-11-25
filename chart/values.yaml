@@ -17,12 +17,12 @@ adminKey:
   existingSecret: ""
 
 # Services allowed to reach mem0 and to read the admin key Secret. At least one is required.
-callers:
-  - namespace: javo
-    serviceAccount: javo-gateway
-    podSelector:
-      app.kubernetes.io/name: javo
-      app.kubernetes.io/component: gateway
+callers: []
+#  - namespace: javo
+#    serviceAccount: javo-gateway
+#    podSelector:
+#      app.kubernetes.io/name: javo
+#      app.kubernetes.io/component: gateway
 
 models:
   # Internal endpoint of the model server, including the /v1 prefix.

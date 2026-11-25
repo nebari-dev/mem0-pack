@@ -61,7 +61,7 @@ spec:
             - {name: health, containerPort: 8082}
           startupProbe:
             httpGet: {path: /healthz, port: health}
-            periodSeconds: 2
+            periodSeconds: 5
             failureThreshold: 60
           readinessProbe:
             httpGet: {path: /healthz, port: health}

@@ -39,6 +39,10 @@ tests:
       - equal:
           path: spec.template.spec.initContainers[1].startupProbe.httpGet.path
           value: /healthz
+      - equal: {path: "spec.template.spec.initContainers[1].startupProbe.periodSeconds", value: 5}
+      - equal: {path: "spec.template.spec.initContainers[1].startupProbe.failureThreshold", value: 60}
+      - notExists:
+          path: spec.template.spec.initContainers[1].livenessProbe
       - equal:
           path: spec.template.spec.initContainers[1].readinessProbe.httpGet.port
           value: health

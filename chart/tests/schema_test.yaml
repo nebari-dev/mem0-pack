@@ -43,3 +43,10 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: set a tag or digest
+
+  - it: fails with the chart defaults for callers
+    values: [required-values.yaml]
+    set:
+      callers: null
+    asserts:
+      - failedTemplate: {}
