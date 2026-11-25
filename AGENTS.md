@@ -65,6 +65,17 @@ uv run --no-project --with pytest pytest -q tests/e2e/fake-model
 (cd tools && go test ./... -race -count=1)
 ```
 
+`.github/workflows/e2e.yaml` runs the kind journeys on pull requests touching `chart/`, `image/`, `tools/`
+or `tests/e2e/` (and on manual dispatch). It installs pinned kind, helm and kubectl, then runs:
+
+```sh
+bash tests/e2e/kind-e2e.sh               # up, test, down (builds images with docker; needs docker, kind, helm, kubectl, jq)
+bash tests/e2e/kind-e2e.sh up            # create or reuse kind cluster mem0-e2e, CloudNativePG, fake model, callers
+bash tests/e2e/kind-e2e.sh test          # run tests/e2e/run.sh against it
+bash tests/e2e/kind-e2e.sh down          # delete the cluster
+KEEP_CLUSTER=1 bash tests/e2e/kind-e2e.sh   # full run, but leave the cluster up
+```
+
 Ruff is pinned to 0.17.6 (`required-version` in `image/pyproject.toml`); keep CI and local the same.
 Third-party actions are pinned to a full commit SHA with a version comment.
 
