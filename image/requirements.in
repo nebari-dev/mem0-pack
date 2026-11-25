@@ -1,0 +1,18 @@
+# mem0 server deps at commit 94c3fe9f (server/requirements.txt), minus the anthropic and
+# google-generativeai providers (only OpenAI is used). Ranges there are pinned to the versions
+# they resolve to together with mem0ai==2.2.1. posthog stays: mem0 imports it unconditionally.
+mem0ai==2.2.1
+fastapi==0.115.8
+uvicorn==0.34.0
+pydantic[email]==2.10.4
+python-dotenv==1.2.2
+psycopg[binary]==3.3.9
+psycopg-pool==3.3.3
+sqlalchemy==2.1.9
+alembic==1.20.1
+passlib[bcrypt]==1.9.5
+bcrypt==4.0.1
+python-jose[cryptography]==3.5.0
+cryptography==50.0.2
+posthog==7.91.4
+slowapi==0.1.10

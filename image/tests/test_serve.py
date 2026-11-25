@@ -1,6 +1,6 @@
 import pytest
 
-from mem0pack.serve import StartupError, check_overrides, ensure_env
+from mem0pack.serve import StartupError, check_overrides, ensure_dirs, ensure_env
 
 
 def test_ensure_env_sets_missing_jwt_secret_and_telemetry():
@@ -20,6 +20,21 @@ def test_ensure_env_leaves_existing_values():
     env = {"JWT_SECRET": "mine", "MEM0_TELEMETRY": "true"}
     ensure_env(env, lambda n: "other")
     assert env == {"JWT_SECRET": "mine", "MEM0_TELEMETRY": "true"}
+
+
+def test_ensure_dirs_creates_parents_of_writable_files(tmp_path):
+    env = {
+        "HISTORY_DB_PATH": str(tmp_path / "history" / "history.db"),
+        "MEM0_TELEMETRY_STATE_PATH": str(tmp_path / "state" / "telemetry.json"),
+    }
+    ensure_dirs(env)
+    ensure_dirs(env)  # idempotent
+    assert (tmp_path / "history").is_dir()
+    assert (tmp_path / "state").is_dir()
+
+
+def test_ensure_dirs_ignores_unset_paths():
+    ensure_dirs({})
 
 
 EXPECTED = {"llm": {"provider": "openai", "config": {"openai_base_url": "http://a"}}, "x": 1}

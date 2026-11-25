@@ -4,7 +4,8 @@ import logging
 import os
 import secrets
 import sys
-from collections.abc import Callable, MutableMapping
+from collections.abc import Callable, Mapping, MutableMapping
+from pathlib import Path
 from types import ModuleType
 
 import sqlalchemy as sa
@@ -28,6 +29,14 @@ def ensure_env(
         env["JWT_SECRET"] = token(48)
     if "MEM0_TELEMETRY" not in env:
         env["MEM0_TELEMETRY"] = "false"
+
+
+def ensure_dirs(env: Mapping[str, str]) -> None:
+    """Create the directories of mem0's writable files: mem0 opens them but creates none of them,
+    and the volume mounted at /var/lib/mem0 starts empty."""
+    for name in ("HISTORY_DB_PATH", "MEM0_TELEMETRY_STATE_PATH"):
+        if env.get(name):
+            Path(env[name]).parent.mkdir(parents=True, exist_ok=True)
 
 
 def _first_diff(actual: dict, expected: dict, prefix: str = "") -> str | None:
@@ -68,6 +77,7 @@ def build_app(server_main: ModuleType):
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     ensure_env(os.environ)
+    ensure_dirs(os.environ)
     sys.path.insert(0, str(SERVER_DIR))
     import main as server_main  # mem0's server module, present only in the image
 

@@ -38,6 +38,8 @@ check-jsonschema \
   pack-metadata.yaml
 ```
 
+Contracts are documented in `docs/architecture/contracts.md`. Changing a contract updates that file in the same PR.
+
 ## Commands
 
 CI (`.github/workflows/lint.yaml`) validates charts and manifests like this; mirror it for any
