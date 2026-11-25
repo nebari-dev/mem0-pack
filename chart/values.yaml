@@ -19,7 +19,7 @@ adminKey:
 # Services allowed to reach mem0 and to read the admin key Secret. At least one is required.
 callers: []
 #  - namespace: javo
-#    serviceAccount: javo-gateway
+#    serviceAccount: javo-controller   # Tapas on sqlite (its default); javo-gateway on postgres
 #    podSelector:
 #      app.kubernetes.io/name: javo
 #      app.kubernetes.io/component: gateway

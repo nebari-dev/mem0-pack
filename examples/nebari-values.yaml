@@ -13,10 +13,12 @@
 #   image:
 #     tag: sha-0123456789abcdef
 
-# Who may call mem0 and read the admin key Secret. For Tapas as javo-pack:
+# Who may call mem0 and read the admin key Secret. For Tapas as javo-pack. The account depends on
+# Tapas's database.engine: javo-controller for sqlite (its default; gateway and controller share one
+# pod), javo-gateway for postgres. The pod labels are the same for both engines.
 callers:
   - namespace: javo
-    serviceAccount: javo-gateway
+    serviceAccount: javo-controller   # javo-gateway if Tapas runs database.engine=postgres
     podSelector:
       app.kubernetes.io/name: javo
       app.kubernetes.io/component: gateway

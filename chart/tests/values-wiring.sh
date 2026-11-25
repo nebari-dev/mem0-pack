@@ -16,9 +16,9 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 out=$(render)
 docs=$(printf '%s\n' "$out" | yq -o=json '.' | jq -s '.')
 
-# The caller grant names the Tapas gateway ServiceAccount, and nothing else.
+# The caller grant names the ServiceAccount of Tapas's gateway pod (sqlite default), and nothing else.
 subjects=$(jq -c '[.[] | select(.kind == "RoleBinding" and (.metadata.name | endswith("-admin-key-reader"))) | .subjects[] | [.kind, .namespace, .name]]' <<<"$docs")
-[ "$subjects" = '[["ServiceAccount","javo","javo-gateway"]]' ] \
+[ "$subjects" = '[["ServiceAccount","javo","javo-controller"]]' ] \
   || fail "role binding subjects are $subjects"
 
 # The server NetworkPolicy admits only the Tapas gateway pods on 8000.

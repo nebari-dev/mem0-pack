@@ -95,7 +95,7 @@ are in `chart/values.yaml` and the shape is enforced by `chart/values.schema.jso
 | `tools.image.repository`, `.tag`, `.digest`, `.pullPolicy` | `quay.io/nebari/mem0-pack-tools`, empty, empty, `IfNotPresent` | Image for the token proxy and the secret generator. |
 | `adminKey.secretName` | `mem0-admin-key` | Name of the admin key Secret (key `api-key`). The chart creates it unless `existingSecret` is set. |
 | `adminKey.existingSecret` | empty | Use this Secret instead of generating one. |
-| `callers` | `[]` (required) | Services allowed to reach mem0 and to read the admin key Secret. Each entry has `namespace`, `serviceAccount` and `podSelector`. At least one is required. |
+| `callers` | `[]` (required) | Services allowed to reach mem0 and to read the admin key Secret. Each entry has `namespace`, `serviceAccount` and `podSelector`. At least one is required. For Tapas, `serviceAccount` is `javo-controller` with its default SQLite engine (gateway and controller share one pod) and `javo-gateway` with Postgres; the `podSelector` (`app.kubernetes.io/name: javo`, `app.kubernetes.io/component: gateway`) is the same for both. |
 | `models.baseURL` | empty (required) | Internal model endpoint, with the `/v1` prefix. |
 | `models.llm` | `Qwen/Qwen3.5-35B-A3B-GPTQ-Int4` | Chat model name. |
 | `models.embedding.model` | empty (required) | Embedding model name. |
@@ -127,6 +127,8 @@ What a caller needs to know:
 - **Admin key.** Secret `mem0-admin-key` (or `adminKey.existingSecret`) in the mem0 namespace,
   key `api-key`. The chart grants `get` on that one Secret to each ServiceAccount in `callers`.
   Send the key as the `X-API-Key` header.
+  For Tapas the ServiceAccount to list is `javo-controller` when Tapas uses SQLite (its default)
+  and `javo-gateway` when it uses Postgres.
 - **Address.** Service `<fullname>` on port 8000, for example
   `http://mem0-nebari-mem0.mem0.svc:8000`. Only pods matching a `callers` entry can connect.
 - **Endpoints.** `POST /memories` (add), `GET /memories` (list), `GET /memories/{id}`,

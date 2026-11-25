@@ -17,9 +17,11 @@ spec:
       valuesObject:
         # The contents of examples/nebari-values.yaml, with the placeholders filled in.
         # No image tags: the published chart's release pins them to the release commit.
+        # Tapas's ServiceAccount depends on its database.engine: javo-controller for sqlite (the
+        # default, one pod), javo-gateway for postgres. The pod labels are the same for both.
         callers:
           - namespace: javo
-            serviceAccount: javo-gateway
+            serviceAccount: javo-controller   # javo-gateway for postgres
             podSelector:
               app.kubernetes.io/name: javo
               app.kubernetes.io/component: gateway
@@ -50,7 +52,7 @@ spec:
     #         tag: sha-0123456789abcdef   # CHANGE
     #     callers:
     #       - namespace: javo
-    #         serviceAccount: javo-gateway
+    #         serviceAccount: javo-controller   # javo-gateway for Tapas on postgres
     #         podSelector:
     #           app.kubernetes.io/name: javo
     #           app.kubernetes.io/component: gateway
