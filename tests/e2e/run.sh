@@ -10,12 +10,23 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ALICE_FACT="Alice loves hiking in the mountains every summer"
 ALICE_QUERY="hiking mountains"
 
-search_ids() { # <user_id> -> ids of memories found, one per line
-  local out
+# search_json <user_id>: run the search and print the body; the step fails unless the call is
+# HTTP 200 and the body holds a results list.
+search_json() {
+  local out body
   out="$(api POST /search "{\"query\":\"$ALICE_QUERY\",\"filters\":{\"user_id\":\"$1\"}}")"
   [ "$(status_of "$out")" = 200 ] || fail "${JOURNEY:-?}" "search for $1 returned $(status_of "$out"): $(body_of "$out")"
-  body_of "$out" | jq -r '(.results // .)[]? | select(.memory | test("hiking"; "i")) | .id'
+  body="$(body_of "$out")"
+  jq -e '(.results // .) | type == "array"' <<<"$body" >/dev/null \
+    || fail "${JOURNEY:-?}" "search for $1 returned an unparseable body: $body"
+  printf '%s\n' "$body"
 }
+
+# result_ids <search body>: every memory id in the result list, one per line.
+result_ids() { jq -r '(.results // .)[] | .id' <<<"$1"; }
+
+# hiking_id <search body>: the id of the memory holding the hiking fact, if any.
+hiking_id() { jq -r '(.results // .)[] | select(.memory | test("hiking"; "i")) | .id' <<<"$1" | head -1; }
 
 step_install() {
   step 1 "install with ci-values under the restricted namespace"
@@ -50,15 +61,19 @@ step_memories() {
   local out id
   out="$(api POST /memories "{\"messages\":[{\"role\":\"user\",\"content\":\"Hi, I am Alice.\"},{\"role\":\"user\",\"content\":\"$ALICE_FACT\"}],\"user_id\":\"alice\",\"agent_id\":\"helper\"}")"
   [ "$(status_of "$out")" = 200 ] || fail 3 "add returned $(status_of "$out"): $(body_of "$out")"
-  id="$(search_ids alice | head -1)"
+  local body
+  body="$(search_json alice)"
+  id="$(hiking_id "$body")"
   [ -n "$id" ] || fail 3 "search for alice did not return the fact"
-  [ -z "$(search_ids bob)" ] || fail 3 "search for bob returned alice's memory"
+  body="$(search_json bob)"
+  assert_eq 3 "number of results for bob" 0 "$(jq '(.results // .) | length' <<<"$body")"
   out="$(api GET "/memories/$id")"
   assert_eq 3 "GET /memories/{id} status" 200 "$(status_of "$out")"
   assert_eq 3 "memory user_id" alice "$(body_of "$out" | jq -r '.user_id')"
   out="$(api DELETE "/memories/$id")"
   assert_eq 3 "DELETE /memories/{id} status" 200 "$(status_of "$out")"
-  [ -z "$(search_ids alice)" ] || fail 3 "search still returns the deleted memory"
+  body="$(search_json alice)"
+  if result_ids "$body" | grep -qx "$id"; then fail 3 "search still returns the deleted memory $id"; fi
   # Leave alice's fact in place for the restart step.
   out="$(api POST /memories "{\"messages\":[{\"role\":\"user\",\"content\":\"$ALICE_FACT\"}],\"user_id\":\"alice\",\"agent_id\":\"helper\"}")"
   [ "$(status_of "$out")" = 200 ] || fail 3 "re-add returned $(status_of "$out")"
@@ -111,13 +126,13 @@ step_restart() {
   JOURNEY=5
   step 5 "memories survive a restart of mem0"
   local before pod after
-  before="$(search_ids alice | sort)"
+  before="$(result_ids "$(search_json alice)" | sort)"
   [ -n "$before" ] || fail 5 "no memory for alice before the restart"
   pod="$(server_pod)"
   k -n "$NS" delete pod "$pod" --wait=true
   k -n "$NS" rollout status "deploy/${FULL}" --timeout=300s || fail 5 "mem0 did not come back"
   k -n "$NS" wait --for=condition=Ready "pod/$(server_pod)" --timeout=300s
-  after="$(search_ids alice | sort)"
+  after="$(result_ids "$(search_json alice)" | sort)"
   assert_eq 5 "alice's memories after the restart" "$before" "$after"
   JOURNEY=
 }
@@ -125,7 +140,16 @@ step_restart() {
 step_allowlist() {
   JOURNEY=6
   step 6 "dangerous endpoints are closed even with the key"
-  local uuid=00000000-0000-4000-8000-000000000000 spec method path body want out
+  local uuid=00000000-0000-4000-8000-000000000000 spec method path body want out real
+  # PUT and history are checked against a memory that exists, so a 404 can only be the allowlist's.
+  out="$(api POST /memories "{\"messages\":[{\"role\":\"user\",\"content\":\"$ALICE_FACT\"}],\"user_id\":\"alice\",\"agent_id\":\"helper\"}")"
+  [ "$(status_of "$out")" = 200 ] || fail 6 "add returned $(status_of "$out"): $(body_of "$out")"
+  real="$(hiking_id "$(search_json alice)")"
+  [ -n "$real" ] || fail 6 "no memory of alice's to test against"
+  out="$(api GET "/memories/$real")"
+  assert_eq 6 "GET /memories/{real id} (allowed route, existing memory)" 200 "$(status_of "$out")"
+  out="$(api GET "/memories/$uuid")"
+  echo "probe: mem0 answers GET /memories/<unknown id> on the allowed route with $(status_of "$out"): $(body_of "$out")"
   # method|path|body|expected status
   local cases=(
     "POST|/auth/register|{}|404"
@@ -137,8 +161,8 @@ step_allowlist() {
     "GET|/docs||404"
     "GET|/openapi.json||404"
     "POST|/generate-instructions|{}|404"
-    "GET|/memories/$uuid/history||404"
-    "PUT|/memories/$uuid|{}|404"
+    "GET|/memories/$real/history||404"
+    "PUT|/memories/$real|{}|404"
     "DELETE|/memories?user_id=alice||404"
     "GET|/memories||400"
     "GET|/memories?agent_id=helper||400"
@@ -188,17 +212,23 @@ step_upgrade() {
 
 step_image() {
   step 11 "the running image is mem0 v2.2.1, hardened"
-  local pod ver commit uid
+  local pod ver commit uid mounts err
   pod="$(server_pod)"
-  ver="$(k -n "$NS" exec "$pod" -c server -- pip show mem0ai | sed -n 's/^Version: //p')"
-  assert_eq 11 "mem0ai version" 2.2.1 "$ver"
-  commit="$(k -n "$NS" exec "$pod" -c server -- cat /app/server/.mem0-commit | tr -d '[:space:]')"
-  assert_eq 11 "/app/server/.mem0-commit" 94c3fe9f238f3dbf29c9ce98643bd71eb13077cd "$commit"
-  uid="$(k -n "$NS" exec "$pod" -c server -- id -u)"
+  [ -n "$pod" ] && [ "$pod" != null ] || fail 11 "no server pod"
+  ver="$(k -n "$NS" exec "$pod" -c server -- pip show mem0ai 2>/dev/null)" || fail 11 "pip show mem0ai failed"
+  assert_eq 11 "mem0ai version" 2.2.1 "$(sed -n 's/^Version: //p' <<<"$ver")"
+  commit="$(k -n "$NS" exec "$pod" -c server -- cat /app/server/.mem0-commit)" || fail 11 "cannot read .mem0-commit"
+  assert_eq 11 "/app/server/.mem0-commit" 94c3fe9f238f3dbf29c9ce98643bd71eb13077cd "$(tr -d '[:space:]' <<<"$commit")"
+  uid="$(k -n "$NS" exec "$pod" -c server -- id -u)" || fail 11 "id -u failed"
   assert_eq 11 "server process uid" 10001 "$uid"
-  if k -n "$NS" exec "$pod" -c server -- sh -c 'touch /app/.write-test' 2>/dev/null; then
-    fail 11 "writing to /app succeeded; the root filesystem is not read-only"
+  assert_eq 11 "server readOnlyRootFilesystem in the pod spec" true     "$(k -n "$NS" get pod "$pod" -o json | jq -r '.spec.containers[] | select(.name == "server") | .securityContext.readOnlyRootFilesystem')"
+  mounts="$(k -n "$NS" exec "$pod" -c server -- cat /proc/self/mounts)" || fail 11 "cannot read /proc/self/mounts"
+  root_mount_is_ro <<<"$mounts" || fail 11 "the root mount is not read-only: $(awk '$2 == "/"' <<<"$mounts")"
+  # The write must fail because the filesystem is read-only, not for lack of permission.
+  if err="$(k -n "$NS" exec "$pod" -c server -- sh -c 'touch /app/.write-test' 2>&1)"; then
+    fail 11 "writing to /app succeeded"
   fi
+  grep -q 'Read-only file system' <<<"$err" || fail 11 "write to /app failed, but not with EROFS: $err"
   if helm --kube-context "$CONTEXT" template "$RELEASE" "$CHART_DIR" -n "$NS" \
       -f "$E2E_DIR/ci-values.yaml" | grep -E 'image:.*:latest'; then
     fail 11 "the rendered chart has a :latest image"

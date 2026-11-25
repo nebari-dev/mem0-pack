@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Shared helpers for tests/e2e/run.sh. Sourced, not executed.
 
-CONTEXT="${CONTEXT:-kind-mem0-e2e}"
+# Hard-coded: never take the kube context from an inherited environment variable, and only ever
+# touch the e2e cluster.
+CONTEXT=kind-mem0-e2e
 NS=mem0
 RELEASE=mem0
 FULL=mem0-nebari-mem0
@@ -83,6 +85,11 @@ except urllib.error.HTTPError as e:
 print(code)
 print(text)
 PY
+}
+
+# root_mount_is_ro: read /proc/self/mounts on stdin; succeed when the "/" mount has the ro option.
+root_mount_is_ro() {
+  awk '$2 == "/" { n = split($4, o, ","); for (i = 1; i <= n; i++) if (o[i] == "ro") found = 1 } END { exit !found }'
 }
 
 # status_of / body_of split an api result.
