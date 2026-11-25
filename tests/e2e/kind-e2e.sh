@@ -15,6 +15,8 @@ CONTEXT="kind-${CLUSTER}"
 NODE_IMAGE="kindest/node:v1.35.8@sha256:07b2536e30b803ed61d1677a79df6115f798ce64c80f9e22f6ed45afd09323c0"
 CNPG_VERSION=0.29.0
 CNPG_REPO=https://cloudnative-pg.github.io/charts
+# Operator image pinned by digest (ghcr.io/cloudnative-pg/cloudnative-pg:1.30.0).
+CNPG_IMAGE_TAG="1.30.0@sha256:a2701eb97cdd2a34b1fdb2cb51987f544b706e40bec72ae7146cd8580efefebb"
 DUMP_NAMESPACES=(mem0 fake-model tapas-sim cnpg-system)
 
 k() { kubectl --context "$CONTEXT" "$@"; }
@@ -61,7 +63,7 @@ up() {
   helm --kube-context "$CONTEXT" repo add cnpg "$CNPG_REPO" --force-update >/dev/null
   helm --kube-context "$CONTEXT" repo update cnpg >/dev/null
   helm --kube-context "$CONTEXT" upgrade --install cnpg cnpg/cloudnative-pg \
-    --version "$CNPG_VERSION" --namespace cnpg-system --create-namespace --wait --timeout 300s
+    --version "$CNPG_VERSION" --set-string image.tag="$CNPG_IMAGE_TAG" --namespace cnpg-system --create-namespace --wait --timeout 300s
   k -n cnpg-system rollout status deploy --timeout=300s
   k wait --for=condition=Established crd/clusters.postgresql.cnpg.io --timeout=120s
 
@@ -96,8 +98,8 @@ case "${1:-all}" in
   down) down ;;
   all)
     if [ "${KEEP_CLUSTER:-}" != "1" ]; then trap 'down' EXIT; fi
-    "$0" up
-    "$0" test
+    (up)
+    (run_tests)
     ;;
   *) echo "usage: $0 [up|test|down]" >&2; exit 2 ;;
 esac
