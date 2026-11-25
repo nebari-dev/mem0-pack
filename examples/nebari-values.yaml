@@ -37,20 +37,19 @@ models:
 
 # Egress is off, so the server pod can reach anything its cluster allows. To close it, set
 # enabled: true and allow the model endpoint, the Keycloak token endpoint and (for an external
-# database) Postgres. The rules are NetworkPolicyEgressRule objects, for example:
+# database) Postgres. The rules are NetworkPolicyEgressRule objects and must match where the
+# https hostnames above resolve, which is usually a gateway address on port 443 (CHANGE the
+# addresses below). If they resolve to an in-cluster Service, use a namespaceSelector and the
+# Service's target port instead.
 # networkPolicy:
 #   egress:
 #     enabled: true
 #     extra:
 #       - to:
-#           - namespaceSelector:
-#               matchLabels:
-#                 kubernetes.io/metadata.name: llm-serving
+#           - ipBlock: {cidr: 192.0.2.10/32}   # CHANGE: where llm-internal.CHANGE.example.com resolves
 #         ports:
-#           - {protocol: TCP, port: 8000}
+#           - {protocol: TCP, port: 443}
 #       - to:
-#           - namespaceSelector:
-#               matchLabels:
-#                 kubernetes.io/metadata.name: keycloak
+#           - ipBlock: {cidr: 192.0.2.11/32}   # CHANGE: where keycloak.CHANGE.example.com resolves
 #         ports:
-#           - {protocol: TCP, port: 8080}
+#           - {protocol: TCP, port: 443}

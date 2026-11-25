@@ -25,8 +25,9 @@ enforces who can read which memories.
   `postgres.external`).
 - An admin API key in a Kubernetes Secret, created once by a Job. A Role lets the ServiceAccounts
   you list in `callers` read that one Secret.
-- A NetworkPolicy that admits only the pods you list in `callers` to mem0, and only mem0 to its
-  database. Optional egress rules close the server pod's outbound traffic.
+- A NetworkPolicy that admits only the pods you list in `callers` to mem0. With the bundled
+  database, a second policy admits to it only mem0's pods, the CloudNativePG operator namespace
+  and the cluster's own instances. Optional egress rules close the server pod's outbound traffic.
 
 mem0 has no per-user access control of its own: anything holding the API key can read any
 person's memories. The pack keeps the key and the network path closed, and the calling service
@@ -95,7 +96,7 @@ are in `chart/values.yaml` and the shape is enforced by `chart/values.schema.jso
 | `adminKey.secretName` | `mem0-admin-key` | Name of the admin key Secret (key `api-key`). The chart creates it unless `existingSecret` is set. |
 | `adminKey.existingSecret` | empty | Use this Secret instead of generating one. |
 | `callers` | `[]` (required) | Services allowed to reach mem0 and to read the admin key Secret. Each entry has `namespace`, `serviceAccount` and `podSelector`. At least one is required. |
-| `models.baseURL` | `https://llm-internal.example.com/v1` | Internal model endpoint, with the `/v1` prefix. |
+| `models.baseURL` | empty (required) | Internal model endpoint, with the `/v1` prefix. |
 | `models.llm` | `Qwen/Qwen3.5-35B-A3B-GPTQ-Int4` | Chat model name. |
 | `models.embedding.model` | empty (required) | Embedding model name. |
 | `models.embedding.dimensions` | `null` (required) | Output width of the embedding model. The vector column is created with this width at first install. |
@@ -132,7 +133,10 @@ What a caller needs to know:
   `DELETE /memories/{id}` and `POST /search`. `/healthz` and `/readyz` need no key.
 - **Scope rule.** Every add, list and search must carry a literal, non-empty `user_id`, not `*`.
   `agent_id` and `run_id` only narrow it. Search takes no `AND`, `OR`, `NOT` or operator filters.
-  An add takes a top-level `user_id` and rejects a `filters` key.
+  An add takes a top-level `user_id` and rejects a `filters` key. `GET /memories` accepts only
+  the query parameters `user_id`, `agent_id`, `run_id`, `top_k` and `show_expired`, each at most
+  once; any other parameter, or a repeat, is a `400`. The `{id}` in by-id paths must be a
+  lowercase UUID; anything else is a `404`.
 - **Errors.** `400` for an unscoped add, list or search. `401` without a valid key. `404` for
   anything not on the list, including `/auth/*`, `/configure` and `/reset`.
 - **By-id calls.** `GET /memories/{id}` answers `200` with `null` for an id that does not exist.
