@@ -3,7 +3,14 @@ import json
 import pytest
 from starlette.testclient import TestClient
 
-from mem0pack.allowlist import RULES, Allowlist, Rule, scope_error_body, scope_error_query
+from mem0pack.allowlist import (
+    RULES,
+    Allowlist,
+    Rule,
+    scope_error_add,
+    scope_error_body,
+    scope_error_query,
+)
 
 UID = "123e4567-e89b-12d3-a456-426614174000"
 MAX_BODY = 1024 * 1024
@@ -144,6 +151,10 @@ BAD_REQUEST = [
     ("POST", "/memories", j({"messages": [], "user_id": "*"})),
     ("POST", "/memories", j({"messages": [], "user_id": ""})),
     ("POST", "/memories", j({"messages": [], "user_id": "a", "run_id": "*"})),
+    ("POST", "/memories", j({"agent_id": "helper", "filters": {"user_id": "alice"}})),
+    ("POST", "/memories", j({"messages": [], "user_id": "alice", "filters": {"user_id": "alice"}})),
+    ("POST", "/memories", j({"messages": [], "user_id": "alice", "filters": None})),
+    ("POST", "/memories", j({"messages": [], "user_id": None, "agent_id": "h"})),
     ("POST", "/memories", b"not json"),
     ("POST", "/memories", b""),
     ("POST", "/search", j({"query": "q", "filters": {"agent_id": "helper"}})),
@@ -270,6 +281,7 @@ def test_custom_rules_are_used(app):
 
 def test_default_rules_cover_exactly_the_table():
     assert {(r.method, r.scope) for r in RULES} == {
+        ("POST", "add"),
         ("POST", "body"),
         ("GET", "query"),
         ("GET", "none"),
@@ -316,3 +328,20 @@ def test_scope_error_query(params, ok):
 )
 def test_scope_error_body(body, ok):
     assert (scope_error_body(body) is None) is ok
+
+
+@pytest.mark.parametrize(
+    "body,ok",
+    [
+        ({"messages": [], "user_id": "a"}, True),
+        ({"user_id": "a", "agent_id": "h", "run_id": "r"}, True),
+        ({"agent_id": "h"}, False),
+        ({"agent_id": "h", "filters": {"user_id": "a"}}, False),
+        ({"user_id": "a", "filters": {}}, False),
+        ({"user_id": "*"}, False),
+        ({"user_id": ""}, False),
+        ({"user_id": "a", "agent_id": ""}, False),
+    ],
+)
+def test_scope_error_add(body, ok):
+    assert (scope_error_add(body) is None) is ok

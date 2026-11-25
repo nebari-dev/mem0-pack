@@ -22,11 +22,11 @@ _NOT_FOUND = b'{"detail":"Not Found"}'
 class Rule:
     method: str
     pattern: re.Pattern[str]
-    scope: Literal["none", "query", "body"]
+    scope: Literal["none", "query", "body", "add"]
 
 
 RULES: tuple[Rule, ...] = (
-    Rule("POST", re.compile(r"/memories\Z"), "body"),
+    Rule("POST", re.compile(r"/memories\Z"), "add"),
     Rule("GET", re.compile(r"/memories\Z"), "query"),
     Rule("GET", re.compile(rf"/memories/{_UUID}\Z"), "none"),
     Rule("DELETE", re.compile(rf"/memories/{_UUID}\Z"), "none"),
@@ -88,6 +88,19 @@ def scope_error_body(body: dict) -> str | None:
     return None
 
 
+def scope_error_add(body: dict) -> str | None:
+    """Return why a POST /memories body is not scoped, or None when it is.
+
+    mem0's add has no `filters` field and drops it, so the scope must be a top-level user_id;
+    a body carrying `filters` is rejected rather than trusted.
+    """
+    if "filters" in body:
+        return "filters is not allowed when adding a memory"
+    if not isinstance(body.get("user_id"), str):
+        return "user_id is required"
+    return scope_error_body(body)
+
+
 def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict:
     out: dict = {}
     for key, value in pairs:
@@ -126,7 +139,7 @@ class Allowlist:
         except _TooLarge:
             await self._bad_request(send, "request body too large")
             return
-        if rule.scope == "body" and (err := self._body_error(body)):
+        if rule.scope in ("body", "add") and (err := self._body_error(body, rule.scope)):
             await self._bad_request(send, err)
             return
         await self.app(scope, self._replay(body, receive), send)
@@ -144,14 +157,14 @@ class Allowlist:
         return None
 
     @staticmethod
-    def _body_error(body: bytes) -> str | None:
+    def _body_error(body: bytes, scope: str) -> str | None:
         try:
             parsed = json.loads(body, object_pairs_hook=_reject_duplicate_keys)
         except (ValueError, RecursionError):
             return "request body must be valid JSON"
         if not isinstance(parsed, dict):
             return "request body must be a JSON object"
-        return scope_error_body(parsed)
+        return scope_error_add(parsed) if scope == "add" else scope_error_body(parsed)
 
     @staticmethod
     async def _read_body(receive) -> bytes:
