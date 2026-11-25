@@ -1,12 +1,12 @@
 # Local development Makefile for the mem0 pack.
 #
 # Targets drive the kind end-to-end harness in tests/e2e/kind-e2e.sh
-# (added in a later slice; these targets fail until it lands).
+# (the targets below call its up, test and down commands).
 #
 # Prerequisites: docker, kind, helm, kubectl
 #
 # Usage:
-#   make kind-up   Create the kind cluster and install the pack
+#   make kind-up   Create the kind cluster and its dependencies (the pack is installed by run.sh install)
 #   make e2e       Run the end-to-end checks against the cluster
 #   make down      Delete the kind cluster
 
