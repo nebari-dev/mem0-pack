@@ -1,6 +1,8 @@
 # Values for a Nebari Infrastructure Core (NIC) cluster where Tapas is installed as javo-pack in
 # the namespace "javo". Change the placeholders marked CHANGE; leave the rest.
-# Install: helm install mem0 ./chart -n mem0 --create-namespace -f my-values.yaml
+# Install from a checkout (see the README, Install; a checkout has no pinned image tags):
+#   helm install mem0 ./chart -n mem0 --create-namespace -f my-values.yaml \
+#     --set image.tag=sha-<commit> --set tools.image.tag=sha-<commit>
 
 # Image tags are not set here: the published chart pins them to the release commit. When you
 # install from a checkout (no chart is published until #12), the chart has no pinned tags, so set

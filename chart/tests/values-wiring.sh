@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Render examples/nebari-values.yaml and check the wiring an operator relies on. The example
-# leaves image tags empty (no chart version is published yet), so this fills them with --set.
+# Render examples/nebari-values.yaml and check the wiring an operator relies on. The example sets
+# no image tags: a released chart pins them (release.yaml tag-paths). The chart in this repo has
+# no pinned tags, so this fills them with --set.
 # Needs helm, jq and yq (mikefarah).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
