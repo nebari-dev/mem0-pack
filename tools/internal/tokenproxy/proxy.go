@@ -18,7 +18,9 @@ type tokenKey struct{}
 // to the upstream origin. mem0 calls http://127.0.0.1:8081/v1/chat/completions
 // and, with upstream https://host/v1, the upstream sees /v1/chat/completions
 // (never /v1/v1/...). A path outside the prefix gets 404 and no token is
-// fetched, so the proxy cannot reach other parts of the upstream.
+// fetched, so the proxy cannot reach other parts of the upstream. Paths with
+// percent-encoding, backslashes, or empty/dot segments are rejected the same
+// way, since they could resolve outside the prefix upstream.
 type Handler struct {
 	prefix string
 	ts     TokenSource
@@ -48,7 +50,7 @@ func NewHandler(upstream *url.URL, ts TokenSource, log *slog.Logger) *Handler {
 
 // ServeHTTP implements http.Handler.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !underPrefix(r.URL.Path, h.prefix) {
+	if !cleanPath(r.URL) || !underPrefix(r.URL.Path, h.prefix) {
 		writeJSON(w, http.StatusNotFound, `{"error":"not found"}`)
 		return
 	}
@@ -65,6 +67,25 @@ func writeJSON(w http.ResponseWriter, status int, body string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_, _ = w.Write([]byte(body))
+}
+
+// cleanPath reports whether the request path is safe to forward verbatim:
+// no percent-encoding (RawPath is set whenever the original differs from the
+// default encoding), no backslash, and no empty, "." or ".." segment. Without
+// this, /v1/../admin would pass the prefix check yet resolve outside it.
+func cleanPath(u *url.URL) bool {
+	if u.RawPath != "" || strings.Contains(u.Path, "\\") {
+		return false
+	}
+	if u.Path == "" {
+		return true
+	}
+	for _, seg := range strings.Split(u.Path[1:], "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return false
+		}
+	}
+	return true
 }
 
 func underPrefix(path, prefix string) bool {

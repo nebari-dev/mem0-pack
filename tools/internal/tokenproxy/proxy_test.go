@@ -37,6 +37,12 @@ func TestHandlerReplacesAuthorization(t *testing.T) {
 		{"no prefix upstream", "", "/chat/completions", "/chat/completions", 200},
 		{"outside prefix", "/v1", "/admin", "", 404},
 		{"sibling prefix not matched", "/v1", "/v10/models", "", 404},
+		{"dot-dot segment", "/v1", "/v1/../admin", "", 404},
+		{"encoded dot-dot", "/v1", "/v1/%2e%2e/admin", "", 404},
+		{"dot segment", "/v1", "/v1/./chat/completions", "", 404},
+		{"empty segment", "/v1", "/v1//chat/completions", "", 404},
+		{"encoded slash", "/v1", "/v1/chat%2Fcompletions", "", 404},
+		{"backslash", "/v1", `/v1\..\admin`, "", 404},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
