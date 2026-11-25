@@ -66,6 +66,8 @@ jobs:
           version: v4.3.2
       - name: helm lint
         run: helm lint chart/ -f tests/e2e/ci-values.yaml
+      - name: deterministic render
+        run: bash chart/tests/deterministic.sh
       - name: kubeconform
         run: |
           curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz \
