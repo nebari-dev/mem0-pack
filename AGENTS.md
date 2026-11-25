@@ -8,6 +8,9 @@ This is the mem0 Nebari software pack. It was created from `nebari-dev/nebari-so
 the template's examples, docs site and their workflows have been removed. What is here:
 
 - `image/`: the mem0 server image (Python, with its tests, `requirements*.txt` and `smoke.sh`).
+- `chart/`: the Helm chart (`nebari-mem0`): mem0 server Deployment and Service, a CloudNativePG
+  database, the create-once secret generator, the caller grant, a values schema and helm-unittest
+  suites under `chart/tests/`.
 - `tools/`: a Go module for the tools image (token proxy sidecar and the create-once secret
   generator).
 - `tests/e2e/fake-model/`: a stdlib Python fake model server for end-to-end tests.
@@ -18,15 +21,15 @@ the template's examples, docs site and their workflows have been removed. What i
   reference, release-readiness checklist, docs-site requirements) are template reference docs:
   useful as specs, not as pack docs. `docs/superpowers/` holds design specs and plans.
 
-The Helm chart does not exist yet; it arrives in the next slice at `chart/` (only
-`chart/tests/check-pack-metadata.sh` is there now). `release.yaml` already points at `chart/` with
-chart name `nebari-mem0` but stays disabled until the first release is cut. `dev/Makefile` targets
-(`kind-up`, `e2e`, `down`) call `tests/e2e/kind-e2e.sh`, which does not exist yet.
+Not in the chart yet: NetworkPolicies and the external-Postgres option. `release.yaml` points at
+`chart/` with chart name `nebari-mem0` but stays disabled until the first release is cut.
+`dev/Makefile` targets (`kind-up`, `e2e`, `down`) call `tests/e2e/kind-e2e.sh`.
 
 ## Pack design constraints (from README.md and pack-metadata.yaml)
 
 - Deploys the mem0 server, Postgres with pgvector, an admin API key in a Kubernetes Secret, and a
-  NetworkPolicy that admits only named callers (for Tapas, its gateway pods).
+  NetworkPolicy that admits only named callers (for Tapas, its gateway pods). The NetworkPolicy
+  is not in the chart yet.
 - mem0 has no per-user access control: any holder of the API key can read every person's
   memories. Protection rests on keeping the key secret and the network path closed. The calling
   service (Tapas first) scopes each request to a person. Do not add anything that widens either.
@@ -55,6 +58,9 @@ uvx --from check-jsonschema check-jsonschema --builtin-schema vendor.github-work
 (cd image && uvx ruff@0.17.6 check . && uvx ruff@0.17.6 format --check .)
 uvx ruff@0.17.6 check tests/e2e/fake-model && uvx ruff@0.17.6 format --check tests/e2e/fake-model
 (cd tools && go vet ./... && gofmt -l .)         # gofmt must print nothing
+helm lint chart/ -f tests/e2e/ci-values.yaml
+bash chart/tests/deterministic.sh                # two renders must be identical
+helm template test chart/ -f tests/e2e/ci-values.yaml | kubeconform -strict -ignore-missing-schemas -summary
 ```
 
 `.github/workflows/test.yaml` (unit tests):
@@ -63,6 +69,7 @@ uvx ruff@0.17.6 check tests/e2e/fake-model && uvx ruff@0.17.6 format --check tes
 (cd image && uv run --no-project --with-requirements requirements-dev.txt pytest -q)
 uv run --no-project --with pytest pytest -q tests/e2e/fake-model
 (cd tools && go test ./... -race -count=1)
+helm unittest chart/                             # needs the helm-unittest plugin (v1.2.1 in CI)
 ```
 
 `.github/workflows/e2e.yaml` runs the kind journeys on pull requests touching `chart/`, `image/`, `tools/`
@@ -79,9 +86,7 @@ KEEP_CLUSTER=1 bash tests/e2e/kind-e2e.sh   # full run, but leave the cluster up
 Ruff is pinned to 0.17.6 (`required-version` in `image/pyproject.toml`); keep CI and local the same.
 Third-party actions are pinned to a full commit SHA with a version comment.
 
-Chart checks (`helm lint`, `helm template`, `kubeconform`) and the kind end-to-end run are not
-wired up yet; they land with the chart and `tests/e2e/kind-e2e.sh`. When they do, add them to
-`lint.yaml` and to this section.
+New chart checks go in `lint.yaml` (static) or `test.yaml` (unit) and in this section.
 
 ## Release and images
 
