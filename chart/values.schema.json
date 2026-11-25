@@ -16,6 +16,17 @@
         }
       }
     },
+    "networkPolicy": {
+      "type": "object",
+      "properties": {
+        "egress": {
+          "type": "object",
+          "properties": {
+            "extra": {"type": "array", "items": {"type": "object"}}
+          }
+        }
+      }
+    },
     "models": {
       "type": "object",
       "required": ["baseURL", "llm", "embedding", "auth"],
