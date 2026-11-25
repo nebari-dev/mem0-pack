@@ -190,7 +190,7 @@ A Python stdlib HTTP server, test-only:
 | Deterministic renders with in-cluster secrets: no `lookup` or random functions in templates | [inferred] | llm-serving-pack `charts/nebari-llm-serving/charts/nebari-openmeter/templates/credentials.yaml` header; langfuse-pack `examples/argocd-app.yaml` header | yes |
 | Ensure-secret Job as ordinary resources: create-only Role and a pod-spec hash in the Job name | [inferred] | llm-serving-pack `nebari-openmeter/templates/credentials.yaml` | yes |
 | Pack layout as langfuse-pack: `chart/` with helm-unittest suites and wiring scripts, `examples/` with deploy values and an ArgoCD Application | [inferred] | langfuse-pack `chart/`, `examples/`, `.github/workflows/test.yaml` | yes |
-| Bundled Postgres as a CloudNativePG Cluster read through its generated app Secret | [inferred] | nexus.internal.openteams.app `manifests/billing/usage-control-db.yaml`, llm-serving-pack `database.yaml` (referenced in credentials.yaml) | yes |
+| Bundled Postgres as a CloudNativePG Cluster read through its generated app Secret | [inferred] | llm-serving-pack `charts/nebari-llm-serving/charts/nebari-openmeter/templates/database.yaml` | yes |
 | Go tools log with `log/slog` and wrap errors `fmt.Errorf("verb noun: %w", err)` | [inferred] | tapas `internal/telemetry/telemetry.go`, `internal/gateway/authn/authn.go:291` (via the Tapas spec's patterns table) | no |
 
 Promote? values were set by the builder under the owner's delegation (2026-11-25); `yes` rows are written to `docs/architecture/patterns.md` by the first slice.

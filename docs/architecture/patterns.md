@@ -30,6 +30,6 @@ The chart lives in `chart/` with helm-unittest suites and wiring scripts beside 
 
 The bundled database is a CloudNativePG `Cluster`, not a hand-rolled StatefulSet. Workloads read credentials and connection details from the app Secret that CloudNativePG generates (`username`, `password`, `host`, `port`, `dbname`).
 
-**Source:** nexus.internal.openteams.app `manifests/billing/usage-control-db.yaml`; llm-serving-pack `database.yaml` (referenced in credentials.yaml)
+**Source:** llm-serving-pack `charts/nebari-llm-serving/charts/nebari-openmeter/templates/database.yaml`
 
 **Confirmed:** 2026-11-25 (spec: docs/superpowers/specs/2026-11-25-mem0-pack-design.md)
