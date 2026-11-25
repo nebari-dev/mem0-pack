@@ -118,12 +118,14 @@ print(urllib.request.urlopen(sys.argv[1], timeout=15).read().decode())
 PY
 }
 
-# tcp_probe <namespace> <pod> <host> <port>: TCP connect from inside a pod with a 5 s timeout.
+# tcp_probe <namespace> <pod> <host> <port> [container]: TCP connect from inside a pod (optionally a
+# named container) with a 5 s timeout.
 # Prints exactly one word: connected, timeout (dropped), or refused:<error> for anything else, so a
 # dropped path is never confused with a reachable one or with a broken probe.
 tcp_probe() {
-  local ns="$1" pod="$2"
-  k -n "$ns" exec -i "$pod" -- python - "$3" "$4" <<'PY'
+  local ns="$1" pod="$2" cargs=()
+  [ -z "${5:-}" ] || cargs=(-c "$5")
+  k -n "$ns" exec -i "${cargs[@]}" "$pod" -- python - "$3" "$4" <<'PY'
 import socket, sys
 try:
     socket.create_connection((sys.argv[1], int(sys.argv[2])), timeout=5).close()
@@ -133,4 +135,11 @@ except socket.timeout:
 except OSError as e:
     print("refused:" + repr(e))
 PY
+}
+
+# restart_mem0: roll the mem0 Deployment and wait until the new pod is ready and the old one gone.
+restart_mem0() {
+  k -n "$NS" rollout restart "deploy/${FULL}" >/dev/null || return 1
+  k -n "$NS" rollout status "deploy/${FULL}" --timeout=300s || return 1
+  k -n "$NS" wait --for=condition=Ready "pod/$(server_pod)" --timeout=300s
 }
