@@ -187,6 +187,19 @@ BAD_REQUEST = [
 ]
 
 
+PADDED = [(" alice", "%20alice"), ("alice ", "alice%20"), ("\talice", "%09alice"), ("  ", "%20%20")]
+for _raw, _enc in PADDED:
+    BAD_REQUEST += [
+        ("GET", f"/memories?user_id={_enc}", None),
+        ("GET", f"/memories?user_id=a&agent_id={_enc}", None),
+        ("POST", "/search", j({"query": "q", "filters": {"user_id": _raw}})),
+        ("POST", "/search", j({"query": "q", "user_id": _raw})),
+        ("POST", "/search", j({"query": "q", "user_id": "a", "filters": {"run_id": _raw}})),
+        ("POST", "/memories", j({"messages": [], "user_id": _raw})),
+        ("POST", "/memories", j({"messages": [], "user_id": "a", "agent_id": _raw})),
+    ]
+
+
 @pytest.mark.parametrize("method,target,body", BAD_REQUEST)
 def test_unscoped_or_malformed_is_400_and_app_not_called(client, app, method, target, body):
     resp = send(client, method, target, body)

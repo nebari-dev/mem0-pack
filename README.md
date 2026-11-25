@@ -133,7 +133,7 @@ What a caller needs to know:
   `http://mem0-nebari-mem0.mem0.svc:8000`. Only pods matching a `callers` entry can connect.
 - **Endpoints.** `POST /memories` (add), `GET /memories` (list), `GET /memories/{id}`,
   `DELETE /memories/{id}` and `POST /search`. `/healthz` and `/readyz` need no key.
-- **Scope rule.** Every add, list and search must carry a literal, non-empty `user_id`, not `*`.
+- **Scope rule.** Every add, list and search must carry a literal, non-empty `user_id`, not `*`, with no leading or trailing whitespace (mem0 strips it, so a padded id would reach another person's memories).
   `agent_id` and `run_id` only narrow it. Search takes no `AND`, `OR`, `NOT` or operator filters.
   An add takes a top-level `user_id` and rejects a `filters` key. `GET /memories` accepts only
   the query parameters `user_id`, `agent_id`, `run_id`, `top_k` and `show_expired`, each at most
