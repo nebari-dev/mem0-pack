@@ -73,7 +73,8 @@ step_memories() {
   out="$(api DELETE "/memories/$id")"
   assert_eq 3 "DELETE /memories/{id} status" 200 "$(status_of "$out")"
   body="$(search_json alice)"
-  if result_ids "$body" | grep -qx "$id"; then fail 3 "search still returns the deleted memory $id"; fi
+  ids="$(result_ids "$body")" || fail 3 "could not read the result ids from the search body: $body"
+  if grep -qx "$id" <<<"$ids"; then fail 3 "search still returns the deleted memory $id"; fi
   # Leave alice's fact in place for the restart step.
   out="$(api POST /memories "{\"messages\":[{\"role\":\"user\",\"content\":\"$ALICE_FACT\"}],\"user_id\":\"alice\",\"agent_id\":\"helper\"}")"
   [ "$(status_of "$out")" = 200 ] || fail 3 "re-add returned $(status_of "$out")"
@@ -116,7 +117,8 @@ step_token() {
       + ([ .volumeMounts[]? as $m | $spec.spec.volumes[] | select(.name == $m.name and .secret.secretName == "model-client") ] | length)
       + ([ .env[]? | select(.value == "secret") ] | length)' <<<"$server")" = 0 ] \
     || fail 4 "the server container references model-client or the client secret value"
-  if k -n "$NS" exec "$pod" -c server -- env | grep -q '=secret$'; then
+  envs="$(k -n "$NS" exec "$pod" -c server -- env)" || fail 4 "could not read the server container environment"
+  if grep -q '=secret$' <<<"$envs"; then
     fail 4 "the server container environment holds the client secret value"
   fi
   JOURNEY=
@@ -229,8 +231,9 @@ step_image() {
     fail 11 "writing to /app succeeded"
   fi
   grep -q 'Read-only file system' <<<"$err" || fail 11 "write to /app failed, but not with EROFS: $err"
-  if helm --kube-context "$CONTEXT" template "$RELEASE" "$CHART_DIR" -n "$NS" \
-      -f "$E2E_DIR/ci-values.yaml" | grep -E 'image:.*:latest'; then
+  rendered="$(helm --kube-context "$CONTEXT" template "$RELEASE" "$CHART_DIR" -n "$NS" \
+      -f "$E2E_DIR/ci-values.yaml")" || fail 11 "could not render the chart to check image tags"
+  if grep -qE 'image:.*:latest' <<<"$rendered"; then
     fail 11 "the rendered chart has a :latest image"
   fi
 }
@@ -295,8 +298,10 @@ step_external() {
   helm --kube-context "$CONTEXT" upgrade --install "$RELEASE" "$CHART_DIR" -n "$NS" \
     -f "$E2E_DIR/ci-values.yaml" -f "$E2E_DIR/external-values.yaml" || fail 10 "helm install failed"
   wait_ready || fail 10 "mem0 not ready against the external database"
-  assert_eq 10 "bundled Clusters in $NS" 0 "$(k -n "$NS" get clusters.postgresql.cnpg.io -o name | grep -vc "/${ext_db}$" || true)"
-  assert_eq 10 "database NetworkPolicy in $NS" 0 "$(k -n "$NS" get networkpolicy -o name | grep -c -- '-db$' || true)"
+  clusters="$(k -n "$NS" get clusters.postgresql.cnpg.io -o name)" || fail 10 "could not list Clusters in $NS"
+  assert_eq 10 "bundled Clusters in $NS" 0 "$(grep -vc "/${ext_db}$" <<<"$clusters" || true)"
+  netpols="$(k -n "$NS" get networkpolicy -o name)" || fail 10 "could not list NetworkPolicies in $NS"
+  assert_eq 10 "database NetworkPolicy in $NS" 0 "$(grep -c -- '-db$' <<<"$netpols" || true)"
   assert_eq 10 "server NetworkPolicy in $NS" 1 "$(k -n "$NS" get networkpolicy "$FULL" -o name | wc -l)"
   assert_eq 10 "server POSTGRES_HOST Secret" ext-db-app \
     "$(k -n "$NS" get deploy "$FULL" -o jsonpath='{.spec.template.spec.containers[?(@.name=="server")].env[?(@.name=="POSTGRES_HOST")].valueFrom.secretKeyRef.name}')"
