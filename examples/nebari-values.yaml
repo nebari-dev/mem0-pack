@@ -1,0 +1,53 @@
+# Values for a Nebari Infrastructure Core (NIC) cluster where Tapas is installed as javo-pack in
+# the namespace "javo". Change the placeholders marked CHANGE; leave the rest.
+# Install: helm install mem0 ./chart -n mem0 --create-namespace -f my-values.yaml
+
+# No chart version is published yet (#12), so there are no default image tags. Set the tags of
+# images you built or that CI pushed (sha-<commit>). A published release pins these for you.
+image:
+  tag: ""        # CHANGE, for example sha-0123456789abcdef
+tools:
+  image:
+    tag: ""      # CHANGE, same tag as above
+
+# Who may call mem0 and read the admin key Secret. For Tapas as javo-pack:
+callers:
+  - namespace: javo
+    serviceAccount: javo-gateway
+    podSelector:
+      app.kubernetes.io/name: javo
+      app.kubernetes.io/component: gateway
+
+models:
+  # llm-serving-pack's internal endpoint, with the /v1 prefix.
+  baseURL: https://llm-internal.CHANGE.example.com/v1
+  llm: CHANGE-chat-model
+  embedding:
+    model: CHANGE-embedding-model
+    # The output width of the embedding model. Fixed at first install.
+    dimensions: 1024
+  auth:
+    # Keycloak token endpoint of the realm that holds the mem0 client.
+    tokenURL: https://keycloak.CHANGE.example.com/realms/nebari/protocol/openid-connect/token
+    # Secret in the release namespace with keys client-id and client-secret, created before install.
+    existingSecret: mem0-model-client
+
+# Egress is off, so the server pod can reach anything its cluster allows. To close it, set
+# enabled: true and allow the model endpoint, the Keycloak token endpoint and (for an external
+# database) Postgres. The rules are NetworkPolicyEgressRule objects, for example:
+# networkPolicy:
+#   egress:
+#     enabled: true
+#     extra:
+#       - to:
+#           - namespaceSelector:
+#               matchLabels:
+#                 kubernetes.io/metadata.name: llm-serving
+#         ports:
+#           - {protocol: TCP, port: 8000}
+#       - to:
+#           - namespaceSelector:
+#               matchLabels:
+#                 kubernetes.io/metadata.name: keycloak
+#         ports:
+#           - {protocol: TCP, port: 8080}

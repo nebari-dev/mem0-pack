@@ -1,0 +1,61 @@
+# Argo CD Application for mem0. Change the placeholders marked CHANGE.
+# The chart renders the same bytes every time, so Argo CD sees no drift.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mem0
+  namespace: argocd
+spec:
+  project: nebari-apps
+  source:
+    # No chart version is published to this repository until #12 is done, so this does not sync
+    # yet. Use the git source below until then.
+    repoURL: https://nebari-dev.github.io/helm-repository
+    chart: nebari-mem0
+    targetRevision: 0.1.0   # CHANGE to a published version
+    helm:
+      valuesObject:
+        # The contents of examples/nebari-values.yaml, with the placeholders filled in.
+        image:
+          tag: ""        # CHANGE, for example sha-0123456789abcdef
+        tools:
+          image:
+            tag: ""      # CHANGE, same tag as above
+        callers:
+          - namespace: javo
+            serviceAccount: javo-gateway
+            podSelector:
+              app.kubernetes.io/name: javo
+              app.kubernetes.io/component: gateway
+        models:
+          # llm-serving-pack's internal endpoint, with the /v1 prefix.
+          baseURL: https://llm-internal.CHANGE.example.com/v1
+          llm: CHANGE-chat-model
+          embedding:
+            model: CHANGE-embedding-model
+            # The output width of the embedding model. Fixed at first install.
+            dimensions: 1024
+          auth:
+            # Keycloak token endpoint of the realm that holds the mem0 client.
+            tokenURL: https://keycloak.CHANGE.example.com/realms/nebari/protocol/openid-connect/token
+            # Secret in the release namespace with keys client-id and client-secret, created before install.
+            existingSecret: mem0-model-client
+    # Git source alternative, from a checkout of this repository (set image tags in the values):
+    # repoURL: https://github.com/nebari-dev/mem0-pack
+    # path: chart
+    # targetRevision: main
+    # helm:
+    #   valueFiles:
+    #     - ../examples/nebari-values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mem0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    # No managedNamespaceMetadata: the chart has no NebariApp, so the namespace does not need the
+    # nebari.dev/managed label.

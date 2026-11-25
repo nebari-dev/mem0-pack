@@ -42,3 +42,5 @@ jobs:
         run: helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.2.1 --verify=false
       - name: helm unittest
         run: helm unittest chart/
+      - name: values wiring
+        run: bash chart/tests/values-wiring.sh
