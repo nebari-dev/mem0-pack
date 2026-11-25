@@ -1,0 +1,99 @@
+# Simulated callers: an allowed Tapas gateway pod, a pod with the wrong service
+# account, and a pod in another namespace. They run the fake-model image (which has
+# Python) so the journeys can make HTTP calls and read the API with their own token.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tapas-sim
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: outsider
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gateway
+  namespace: tapas-sim
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: other
+  namespace: tapas-sim
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: caller
+  namespace: tapas-sim
+  labels:
+    app: tapas-gateway
+spec:
+  serviceAccountName: gateway
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: caller
+      image: fake-model:dev
+      imagePullPolicy: Never
+      command: ["sleep", "infinity"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        capabilities:
+          drop: ["ALL"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: stranger
+  namespace: tapas-sim
+spec:
+  serviceAccountName: other
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: stranger
+      image: fake-model:dev
+      imagePullPolicy: Never
+      command: ["sleep", "infinity"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        capabilities:
+          drop: ["ALL"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: outsider
+  namespace: outsider
+spec:
+  serviceAccountName: default
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: outsider
+      image: fake-model:dev
+      imagePullPolicy: Never
+      command: ["sleep", "infinity"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        capabilities:
+          drop: ["ALL"]
