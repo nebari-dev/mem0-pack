@@ -103,6 +103,10 @@ func runTokenProxy(args []string, stderr io.Writer) int {
 	}
 	log.Info("token-proxy started", "listen", cfg.Listen, "health", cfg.HealthListen)
 
+	// Fetch the first token now so /healthz turns healthy without a request;
+	// the native sidecar's startup probe gates the server container.
+	go func() { _ = tokenproxy.Prefetch(ctx, cc, log, tokenproxy.SleepContext) }()
+
 	code := 0
 	select {
 	case <-ctx.Done():
