@@ -39,3 +39,15 @@ tests:
     documentIndex: 0
     asserts:
       - equal: {path: "rules[0].resourceNames", value: [other]}
+
+  - it: renders numeric and boolean-looking caller names as strings
+    values: [required-values.yaml]
+    set:
+      callers:
+        - {namespace: "123", serviceAccount: "on", podSelector: {app: a}}
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: subjects
+          value:
+            - {kind: ServiceAccount, name: "on", namespace: "123"}

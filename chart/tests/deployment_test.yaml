@@ -213,3 +213,9 @@ tests:
       - equal: {path: "spec.template.spec.containers[0].image", value: "repo/server@sha256:aaaa"}
       - equal: {path: "spec.template.spec.initContainers[0].image", value: "repo/server@sha256:aaaa"}
       - equal: {path: "spec.template.spec.initContainers[1].image", value: "repo/tools@sha256:bbbb"}
+
+  - it: does not mount a service account token or inject service links
+    values: [required-values.yaml]
+    asserts:
+      - equal: {path: spec.template.spec.automountServiceAccountToken, value: false}
+      - equal: {path: spec.template.spec.enableServiceLinks, value: false}

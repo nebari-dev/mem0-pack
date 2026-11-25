@@ -24,6 +24,6 @@ roleRef:
 subjects:
   {{- range .Values.callers }}
   - kind: ServiceAccount
-    name: {{ .serviceAccount }}
-    namespace: {{ .namespace }}
+    name: {{ .serviceAccount | quote }}
+    namespace: {{ .namespace | quote }}
   {{- end }}
