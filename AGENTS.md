@@ -23,7 +23,6 @@ The Helm chart does not exist yet; it arrives in the next slice at `chart/` (onl
 chart name `nebari-mem0` but stays disabled until the first release is cut. `dev/Makefile` targets
 (`kind-up`, `e2e`, `down`) call `tests/e2e/kind-e2e.sh`, which does not exist yet.
 
-
 ## Pack design constraints (from README.md and pack-metadata.yaml)
 
 - Deploys the mem0 server, Postgres with pgvector, an admin API key in a Kubernetes Secret, and a
@@ -72,7 +71,6 @@ Third-party actions are pinned to a full commit SHA with a version comment.
 Chart checks (`helm lint`, `helm template`, `kubeconform`) and the kind end-to-end run are not
 wired up yet; they land with the chart and `tests/e2e/kind-e2e.sh`. When they do, add them to
 `lint.yaml` and to this section.
-
 
 ## Release and images
 
