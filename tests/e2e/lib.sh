@@ -117,3 +117,20 @@ import sys, urllib.request
 print(urllib.request.urlopen(sys.argv[1], timeout=15).read().decode())
 PY
 }
+
+# tcp_probe <namespace> <pod> <host> <port>: TCP connect from inside a pod with a 5 s timeout.
+# Prints exactly one word: connected, timeout (dropped), or refused:<error> for anything else, so a
+# dropped path is never confused with a reachable one or with a broken probe.
+tcp_probe() {
+  local ns="$1" pod="$2"
+  k -n "$ns" exec -i "$pod" -- python - "$3" "$4" <<'PY'
+import socket, sys
+try:
+    socket.create_connection((sys.argv[1], int(sys.argv[2])), timeout=5).close()
+    print("connected")
+except socket.timeout:
+    print("timeout")
+except OSError as e:
+    print("refused:" + repr(e))
+PY
+}
