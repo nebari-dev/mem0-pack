@@ -8,6 +8,9 @@ on:
 
 jobs:
   add-to-project:
+    # Disabled until the repo variable PROJECT_BOARD_URL and the secret
+    # ADD_TO_PROJECT_PAT are set; without them every issue and PR fails this job.
+    if: false
     runs-on: ubuntu-latest
     steps:
       # https://github.com/actions/add-to-project/releases/tag/v2.0.0
