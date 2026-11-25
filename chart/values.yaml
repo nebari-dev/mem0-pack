@@ -1,0 +1,86 @@
+image:
+  repository: quay.io/nebari/mem0-pack-server
+  tag: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+
+tools:
+  image:
+    repository: quay.io/nebari/mem0-pack-tools
+    tag: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+
+adminKey:
+  # Secret holding key "api-key". The chart creates it unless existingSecret is set.
+  secretName: mem0-admin-key
+  existingSecret: ""
+
+# Services allowed to reach mem0 and to read the admin key Secret. At least one is required.
+callers:
+  - namespace: javo
+    serviceAccount: javo-gateway
+    podSelector:
+      app.kubernetes.io/name: javo
+      app.kubernetes.io/component: gateway
+
+models:
+  # Internal endpoint of the model server, including the /v1 prefix.
+  baseURL: https://llm-internal.example.com/v1
+  llm: Qwen/Qwen3.5-35B-A3B-GPTQ-Int4
+  embedding:
+    model: ""
+    # Fixed at first install: the vector column is created with this width.
+    dimensions: null
+  auth:
+    tokenURL: ""
+    scope: ""
+    # Secret with keys client-id and client-secret, created before install.
+    existingSecret: ""
+
+postgres:
+  bundled:
+    enabled: true
+    instances: 1
+    imageName: ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie
+    storage:
+      size: 10Gi
+      storageClass: ""
+    operatorNamespace: cnpg-system
+  external:
+    # Secret with the keys of a CloudNativePG app Secret: host, port, dbname, username, password.
+    existingSecret: ""
+
+history:
+  sizeLimit: 1Gi
+
+networkPolicy:
+  enabled: true
+  egress:
+    enabled: false
+    extra: []
+
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 1Gi
+
+toolsResources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    memory: 128Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}

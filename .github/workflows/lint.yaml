@@ -56,3 +56,19 @@ jobs:
       - name: gofmt
         working-directory: tools
         run: test -z "$(gofmt -l .)"
+
+  chart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: v4.3.2
+      - name: helm lint
+        run: helm lint chart/ -f tests/e2e/ci-values.yaml
+      - name: kubeconform
+        run: |
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz \
+            | tar -xz -C "$RUNNER_TEMP" kubeconform
+          helm template test chart/ -f tests/e2e/ci-values.yaml \
+            | "$RUNNER_TEMP/kubeconform" -strict -ignore-missing-schemas -summary

@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["models", "callers"],
+  "properties": {
+    "callers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["namespace", "serviceAccount", "podSelector"],
+        "properties": {
+          "namespace": {"type": "string", "minLength": 1},
+          "serviceAccount": {"type": "string", "minLength": 1},
+          "podSelector": {"type": "object", "minProperties": 1}
+        }
+      }
+    },
+    "models": {
+      "type": "object",
+      "required": ["baseURL", "llm", "embedding", "auth"],
+      "properties": {
+        "baseURL": {"type": "string", "minLength": 1},
+        "llm": {"type": "string", "minLength": 1},
+        "embedding": {
+          "type": "object",
+          "required": ["model", "dimensions"],
+          "properties": {
+            "model": {"type": "string", "minLength": 1},
+            "dimensions": {"type": "integer", "minimum": 1}
+          }
+        },
+        "auth": {
+          "type": "object",
+          "required": ["tokenURL", "existingSecret"],
+          "properties": {
+            "tokenURL": {"type": "string", "minLength": 1},
+            "scope": {"type": "string"},
+            "existingSecret": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    }
+  }
+}
