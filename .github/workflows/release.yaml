@@ -24,19 +24,21 @@ on:
   push:
     branches: [main]
     paths:
-      - "examples/auth-fastapi/chart/Chart.yaml"
+      - "chart/Chart.yaml"
 
 jobs:
   release:
-    # Disabled until the pack has its own chart: the inputs below still point at
-    # the template's example chart, and a release would publish it as "my-pack".
-    # Re-enable when the first release is cut (nebari-dev/mem0-pack#12).
+    # Disabled until the first release is cut (nebari-dev/mem0-pack#12). Keep
+    # this false until then; lint CI checks it.
     if: false
+    permissions:
+      contents: write
     uses: nebari-dev/.github/.github/workflows/pack-release.yaml@v1
     with:
-      chart-path: examples/auth-fastapi/chart
-      chart-name: my-pack
+      chart-path: chart
+      chart-name: nebari-mem0
       tag-paths: |
         image.tag
+        tools.image.tag
     secrets:
       NEBARI_HELM_REPO_TOKEN: ${{ secrets.NEBARI_HELM_REPO_TOKEN }}

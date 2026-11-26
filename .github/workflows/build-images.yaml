@@ -15,32 +15,21 @@ on:
   push:
     branches: [main]
     paths:
-      - "examples/auth-fastapi/app/**"
-      - "examples/auth-fastapi/Dockerfile"
       - ".github/workflows/build-images.yaml"
       - "image/**"
       - "tools/**"
-      - "examples/auth-fastapi/chart/Chart.yaml"
+      - "chart/Chart.yaml"
   pull_request:
     paths:
-      - "examples/auth-fastapi/app/**"
-      - "examples/auth-fastapi/Dockerfile"
       - "image/**"
       - "tools/**"
   workflow_dispatch:
 
 jobs:
-  auth-fastapi-example:
-    uses: nebari-dev/.github/.github/workflows/pack-build-image.yaml@v1
-    with:
-      image: auth-fastapi-example
-      context: examples/auth-fastapi
-      push: ${{ github.event_name != 'pull_request' }}
-    secrets:
-      QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
-      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
-
   server:
+    permissions:
+      contents: read
+      packages: write
     uses: nebari-dev/.github/.github/workflows/pack-build-image.yaml@v1
     with:
       image: server
@@ -51,6 +40,9 @@ jobs:
       QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
 
   tools:
+    permissions:
+      contents: read
+      packages: write
     uses: nebari-dev/.github/.github/workflows/pack-build-image.yaml@v1
     with:
       image: tools

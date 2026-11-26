@@ -4,20 +4,24 @@ This file provides guidance to coding agents working with code in this repositor
 
 ## What this repo is right now
 
-This is the mem0 Nebari software pack, at the very start of its life. It was created from
-`nebari-dev/nebari-software-pack-template`, and only `README.md`, `pack-metadata.yaml` and
-`CODEOWNERS` have been made mem0-specific so far. Everything else is still template material:
+This is the mem0 Nebari software pack. It was created from `nebari-dev/nebari-software-pack-template`;
+the template's examples, docs site and their workflows have been removed. What is here:
 
-- `examples/` (vanilla-yaml, kustomize-nginx, basic-nginx, auth-fastapi, wrap-existing-chart) are
-  the template's reference packs, all named `my-pack`. None of them is mem0.
-- `.github/workflows/`, `dev/Makefile` and `docs/site/` all target those examples and still carry
-  template identifiers (`CF_PROJECT: nebari-software-pack-template`, `PACK_SLUG:
-  building-a-software-pack`, release `chart-name: my-pack`, the auth-fastapi image).
-- `docs/*.md` (auth flow, NebariApp CRD reference, release-readiness checklist, docs-site
-  requirements) are template reference docs. They are useful as specs, not as pack docs.
+- `image/`: the mem0 server image (Python, with its tests, `requirements*.txt` and `smoke.sh`).
+- `tools/`: a Go module for the tools image (token proxy sidecar and the create-once secret
+  generator).
+- `tests/e2e/fake-model/`: a stdlib Python fake model server for end-to-end tests.
+- `.github/`: workflows for lint, unit tests, image builds and release, plus
+  `.github/scripts/check-template-leftovers.sh`, which fails if template identifiers return to
+  `.github/` or `dev/` or if `release.yaml`'s `release` job is not disabled (`if: false`).
+- `docs/architecture/` holds this pack's contracts. `docs/*.md` (auth flow, NebariApp CRD
+  reference, release-readiness checklist, docs-site requirements) are template reference docs:
+  useful as specs, not as pack docs. `docs/superpowers/` holds design specs and plans.
 
-The mem0 chart does not exist yet. When it lands, the workflows, Makefile targets and docs site
-must be repointed at it; check each one rather than assuming it already covers the pack.
+The Helm chart does not exist yet; it arrives in the next slice at `chart/` (only
+`chart/tests/check-pack-metadata.sh` is there now). `release.yaml` already points at `chart/` with
+chart name `nebari-mem0` but stays disabled until the first release is cut. `dev/Makefile` targets
+(`kind-up`, `e2e`, `down`) call `tests/e2e/kind-e2e.sh`, which does not exist yet.
 
 ## Pack design constraints (from README.md and pack-metadata.yaml)
 
@@ -42,44 +46,31 @@ Contracts are documented in `docs/architecture/contracts.md`. Changing a contrac
 
 ## Commands
 
-CI (`.github/workflows/lint.yaml`) validates charts and manifests like this; mirror it for any
-new chart:
+CI mirrors these; run them from the repo root. `.github/workflows/lint.yaml`:
 
 ```sh
-helm dependency build <chart>/
-helm lint <chart>/
-helm template test <chart>/ [--set ...]          # render each meaningful values combination
-kubectl kustomize <overlay>/ | kubeconform -strict -ignore-missing-schemas
+bash .github/scripts/check-template-leftovers.sh
+bash chart/tests/check-pack-metadata.sh          # needs pyyaml and check-jsonschema
+uvx --from check-jsonschema check-jsonschema --builtin-schema vendor.github-workflows .github/workflows/*.y*ml
+(cd image && uvx ruff@0.17.6 check . && uvx ruff@0.17.6 format --check .)
+uvx ruff@0.17.6 check tests/e2e/fake-model && uvx ruff@0.17.6 format --check tests/e2e/fake-model
+(cd tools && go vet ./... && gofmt -l .)         # gofmt must print nothing
 ```
 
-`test.yaml` installs charts into a plain kind cluster and curls them via port-forward.
-`test-integration.yaml` builds a kind cluster with MetalLB, Envoy Gateway, cert-manager, Keycloak
-and nebari-operator (pinned `OPERATOR_REF: v0.1.0-alpha.19`, also pinned in `dev/Makefile`; keep
-them in sync) and waits for NebariApps to go Ready.
-
-Local cluster (from `dev/`; needs docker, kind, helm, kubectl, git):
+`.github/workflows/test.yaml` (unit tests):
 
 ```sh
-make cluster        # kind cluster "my-pack-dev" with the full Nebari stack (clones nebari-operator into dev/.cache)
-make up-basic       # or up-vanilla / up-kustomize / up-fastapi / up-podinfo (template examples)
-make down
+(cd image && uv run --no-project --with-requirements requirements-dev.txt pytest -q)
+uv run --no-project --with pytest pytest -q tests/e2e/fake-model
+(cd tools && go test ./... -race -count=1)
 ```
 
-Docs site (`docs/site/`, Astro + Starlight + `@nebari/starlight`, uses bun):
+Ruff is pinned to 0.17.6 (`required-version` in `image/pyproject.toml`); keep CI and local the same.
+Third-party actions are pinned to a full commit SHA with a version comment.
 
-```sh
-cd docs/site
-bun install --frozen-lockfile
-bun run dev
-bun run build                         # BASE_PATH defaults to /building-a-software-pack/
-bun test test                         # all tests (build.test.ts builds the site first)
-bun test test/rehype-base-links.test.ts   # a single test file
-```
-
-`test/build.test.ts` hardcodes the base path and every page title, so renaming the slug or a page
-means updating those tests deliberately. `docs/pack-docs-requirements.md` requires the Astro
-`base` to be `/<repo-name>/` (here `/mem0-pack/`) and a specific sidebar layout. The docs site is
-not required until GA; `pack-metadata.yaml` currently has `docs_site: false`.
+Chart checks (`helm lint`, `helm template`, `kubeconform`) and the kind end-to-end run are not
+wired up yet; they land with the chart and `tests/e2e/kind-e2e.sh`. When they do, add them to
+`lint.yaml` and to this section.
 
 ## Release and images
 
