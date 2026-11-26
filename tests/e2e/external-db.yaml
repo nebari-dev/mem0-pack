@@ -1,0 +1,21 @@
+# A database the chart does not own, for the external step: same image, initdb and extension SQL
+# as the chart's bundled Cluster. CloudNativePG creates the Secret ext-db-app (host, port, dbname,
+# username, password) that external-values.yaml points at.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: ext-db
+  namespace: mem0-ext
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie@sha256:ebf3919504d7523a63e8e2fee9b051211de714644b36469275558c624afd50ec
+  enableSuperuserAccess: false
+  enablePDB: false
+  bootstrap:
+    initdb:
+      database: mem0
+      owner: mem0
+      postInitApplicationSQL:
+        - CREATE EXTENSION IF NOT EXISTS vector
+  storage:
+    size: 1Gi

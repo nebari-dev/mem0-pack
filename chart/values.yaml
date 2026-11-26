@@ -51,8 +51,14 @@ postgres:
       size: 10Gi
       storageClass: ""
     operatorNamespace: cnpg-system
+  # External database: set bundled.enabled to false and name a Secret below. The chart then
+  # renders no Cluster and no database NetworkPolicy. The database must already exist, be owned
+  # by the user in the Secret, and have the pgvector extension installed (CREATE EXTENSION
+  # vector); the chart does not create it. With networkPolicy.egress.enabled the chart adds no
+  # rule for the external database: allow it through networkPolicy.egress.extra.
   external:
-    # Secret with the keys of a CloudNativePG app Secret: host, port, dbname, username, password.
+    # Required when bundled.enabled is false. Secret in the release namespace with the keys of
+    # a CloudNativePG app Secret: host, port, dbname, username, password.
     existingSecret: ""
 
 history:

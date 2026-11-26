@@ -159,6 +159,56 @@ tests:
             name: POSTGRES_HOST
             valueFrom: {secretKeyRef: {name: ext-db, key: host}}
 
+  - it: reads every Postgres setting of both containers from the external Secret
+    values: [required-values.yaml]
+    set:
+      postgres.bundled.enabled: false
+      postgres.external.existingSecret: ext-db-app
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].env[?(@.name=="POSTGRES_HOST")].valueFrom.secretKeyRef
+          value: {name: ext-db-app, key: host}
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: POSTGRES_PORT
+            valueFrom: {secretKeyRef: {name: ext-db-app, key: port}}
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: POSTGRES_DB
+            valueFrom: {secretKeyRef: {name: ext-db-app, key: dbname}}
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: POSTGRES_USER
+            valueFrom: {secretKeyRef: {name: ext-db-app, key: username}}
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: POSTGRES_PASSWORD
+            valueFrom: {secretKeyRef: {name: ext-db-app, key: password}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_PORT
+            valueFrom: {secretKeyRef: {name: ext-db-app, key: port}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_DB
+            valueFrom: {secretKeyRef: {name: ext-db-app, key: dbname}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_USER
+            valueFrom: {secretKeyRef: {name: ext-db-app, key: username}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_PASSWORD
+            valueFrom: {secretKeyRef: {name: ext-db-app, key: password}}
+
   - it: hardens every container
     values: [required-values.yaml]
     asserts:

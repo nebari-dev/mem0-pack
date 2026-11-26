@@ -17,7 +17,7 @@ CNPG_VERSION=0.29.0
 CNPG_REPO=https://cloudnative-pg.github.io/charts
 # Operator image pinned by digest (ghcr.io/cloudnative-pg/cloudnative-pg:1.30.0).
 CNPG_IMAGE_TAG="1.30.0@sha256:a2701eb97cdd2a34b1fdb2cb51987f544b706e40bec72ae7146cd8580efefebb"
-DUMP_NAMESPACES=(mem0 fake-model tapas-sim cnpg-system)
+DUMP_NAMESPACES=(mem0 mem0-ext fake-model tapas-sim cnpg-system)
 
 k() { kubectl --context "$CONTEXT" "$@"; }
 

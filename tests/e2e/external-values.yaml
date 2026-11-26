@@ -1,0 +1,7 @@
+# Layered over ci-values.yaml by the external step: no bundled database, the server reads the
+# Secret of the CloudNativePG Cluster in external-db.yaml instead.
+postgres:
+  bundled:
+    enabled: false
+  external:
+    existingSecret: ext-db-app

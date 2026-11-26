@@ -86,6 +86,36 @@ tests:
     asserts:
       - lengthEqual: {path: spec.egress, count: 1}
 
+  - it: egress to an external database comes only from networkPolicy.egress.extra
+    documentIndex: 0
+    set:
+      networkPolicy.egress.enabled: true
+      postgres.bundled.enabled: false
+      postgres.external.existingSecret: ext-db-app
+      networkPolicy.egress.extra:
+        - to:
+            - ipBlock: {cidr: 10.20.0.0/16}
+          ports:
+            - {protocol: TCP, port: 5432}
+    asserts:
+      - lengthEqual: {path: spec.egress, count: 2}
+      - equal:
+          path: spec.egress[1]
+          value:
+            to:
+              - ipBlock: {cidr: 10.20.0.0/16}
+            ports:
+              - {protocol: TCP, port: 5432}
+      - notContains:
+          path: spec.egress
+          content:
+            to:
+              - podSelector:
+                  matchLabels:
+                    cnpg.io/cluster: rel-nebari-mem0-db
+            ports:
+              - {protocol: TCP, port: 5432}
+
   - it: database policy admits the server, the operator and its own instances
     documentIndex: 1
     asserts:

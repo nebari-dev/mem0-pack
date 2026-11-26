@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Journey steps for the end-to-end run: run.sh [STEP...]
-# Steps: install grant memories token restart allowlist upgrade image netpol egress
+# Steps: install grant memories token restart allowlist upgrade image netpol egress external
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -279,7 +279,35 @@ step_egress() {
   JOURNEY=
 }
 
-ALL_STEPS=(install grant memories token restart allowlist upgrade image netpol egress)
+step_external() {
+  step 10 "an operator can point the pack at a Postgres they already run"
+  local ext_ns=mem0-ext ext_db=ext-db
+  local saved=("$NS" "$RELEASE" "$DB_CLUSTER")
+  k create namespace "$ext_ns" --dry-run=client -o yaml | k apply -f - >/dev/null
+  k label namespace "$ext_ns" pod-security.kubernetes.io/enforce=restricted --overwrite >/dev/null
+  k -n "$ext_ns" create secret generic model-client \
+    --from-literal=client-id=mem0 --from-literal=client-secret=secret \
+    --dry-run=client -o yaml | k apply -f - >/dev/null
+  k apply -f "$E2E_DIR/external-db.yaml" || fail 10 "could not create the external database"
+  k -n "$ext_ns" wait --for=condition=Ready "cluster.postgresql.cnpg.io/$ext_db" --timeout=300s \
+    || fail 10 "the external database is not ready within 5 minutes"
+  use_release "$ext_ns" mem0ext "$ext_db"
+  helm --kube-context "$CONTEXT" upgrade --install "$RELEASE" "$CHART_DIR" -n "$NS" \
+    -f "$E2E_DIR/ci-values.yaml" -f "$E2E_DIR/external-values.yaml" || fail 10 "helm install failed"
+  wait_ready || fail 10 "mem0 not ready against the external database"
+  assert_eq 10 "bundled Clusters in $NS" 0 "$(k -n "$NS" get clusters.postgresql.cnpg.io -o name | grep -vc "/${ext_db}$" || true)"
+  assert_eq 10 "database NetworkPolicy in $NS" 0 "$(k -n "$NS" get networkpolicy -o name | grep -c -- '-db$' || true)"
+  assert_eq 10 "server NetworkPolicy in $NS" 1 "$(k -n "$NS" get networkpolicy "$FULL" -o name | wc -l)"
+  assert_eq 10 "server POSTGRES_HOST Secret" ext-db-app \
+    "$(k -n "$NS" get deploy "$FULL" -o jsonpath='{.spec.template.spec.containers[?(@.name=="server")].env[?(@.name=="POSTGRES_HOST")].valueFrom.secretKeyRef.name}')"
+  step_memories
+  helm --kube-context "$CONTEXT" uninstall "$RELEASE" -n "$NS" --wait || fail 10 "helm uninstall failed"
+  k -n "$NS" delete -f "$E2E_DIR/external-db.yaml" --wait=true || fail 10 "could not delete the external database"
+  k delete namespace "$NS" --wait=true || fail 10 "could not delete namespace $NS"
+  use_release "${saved[0]}" "${saved[1]}" "${saved[2]}"
+}
+
+ALL_STEPS=(install grant memories token restart allowlist upgrade image netpol egress external)
 STEPS=("$@")
 [ ${#STEPS[@]} -gt 0 ] || STEPS=("${ALL_STEPS[@]}")
 for s in "${STEPS[@]}"; do

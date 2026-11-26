@@ -50,3 +50,34 @@ tests:
       callers: null
     asserts:
       - failedTemplate: {}
+
+  - it: fails without an external database Secret when bundled is off
+    values: [required-values.yaml]
+    set:
+      postgres.bundled.enabled: false
+    asserts:
+      - failedTemplate: {}
+
+  - it: fails with an empty external database Secret when bundled is off
+    values: [required-values.yaml]
+    set:
+      postgres.bundled.enabled: false
+      postgres.external.existingSecret: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: existingSecret
+
+  - it: renders with an external database Secret when bundled is off
+    values: [required-values.yaml]
+    set:
+      postgres.bundled.enabled: false
+      postgres.external.existingSecret: ext-db-app
+    asserts:
+      - hasDocuments: {count: 1}
+
+  - it: does not need an external database Secret when bundled is on
+    values: [required-values.yaml]
+    set:
+      postgres.external.existingSecret: ""
+    asserts:
+      - hasDocuments: {count: 1}
