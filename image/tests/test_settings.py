@@ -51,7 +51,58 @@ def test_overrides_shape():
         "embedder": {"provider": "openai", "config": {"model": "embed-y", "openai_base_url": URL}},
         "vector_store": {
             "provider": "pgvector",
-            "config": {"embedding_model_dims": 384, "collection_name": "memories"},
+            "config": {
+                "embedding_model_dims": 384,
+                "collection_name": "memories",
+                "hnsw": True,
+                "diskann": False,
+            },
         },
     }
     assert not {"api_key", "password"} & set(_keys(o))
+
+
+@pytest.mark.parametrize(
+    "index, dims, hnsw",
+    [
+        (None, "384", True),
+        ("auto", "2000", True),
+        ("auto", "2001", False),
+        ("auto", "3072", False),
+        ("hnsw", "2000", True),
+        ("none", "384", False),
+        ("none", "3072", False),
+    ],
+)
+def test_embedding_index_resolves_to_hnsw_flag(index, dims, hnsw):
+    env = {**BASE_ENV, "MEM0PACK_EMBEDDING_DIMS": dims}
+    if index is not None:
+        env["MEM0PACK_EMBEDDING_INDEX"] = index
+    cfg = load_settings(env).overrides()["vector_store"]["config"]
+    assert cfg["hnsw"] is hnsw
+    assert cfg["diskann"] is False
+
+
+def test_hnsw_above_2000_dims_is_refused():
+    env = {
+        **BASE_ENV,
+        "MEM0PACK_EMBEDDING_DIMS": "2048",
+        "MEM0PACK_EMBEDDING_INDEX": "hnsw",
+    }
+    with pytest.raises(SettingsError) as exc:
+        load_settings(env)
+    msg = str(exc.value)
+    assert "MEM0PACK_EMBEDDING_INDEX" in msg
+    assert "MEM0PACK_EMBEDDING_DIMS" in msg
+    assert "none" in msg and "auto" in msg
+
+
+@pytest.mark.parametrize("index", ["ivfflat", "HNSW", "true"])
+def test_unknown_embedding_index_is_refused(index):
+    with pytest.raises(SettingsError, match="MEM0PACK_EMBEDDING_INDEX"):
+        load_settings({**BASE_ENV, "MEM0PACK_EMBEDDING_INDEX": index})
+
+
+def test_empty_embedding_index_means_auto():
+    s = load_settings({**BASE_ENV, "MEM0PACK_EMBEDDING_INDEX": ""})
+    assert s.embedding_index == "auto"
