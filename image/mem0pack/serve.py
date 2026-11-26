@@ -10,6 +10,7 @@ from types import ModuleType
 
 import sqlalchemy as sa
 
+from mem0pack.allowlist import Allowlist
 from mem0pack.health import Health
 from mem0pack.migrate import SERVER_DIR, read_overrides
 from mem0pack.settings import SettingsError, load_settings
@@ -72,7 +73,7 @@ def build_app(server_main: ModuleType):
         except Exception:  # noqa: BLE001
             return False
 
-    return Health(server_main.app, ready=ready)
+    return Health(Allowlist(server_main.app), ready=ready)
 
 
 def main() -> None:
@@ -80,16 +81,17 @@ def main() -> None:
     ensure_env(os.environ)
     ensure_dirs(os.environ)
     sys.path.insert(0, str(SERVER_DIR))
-    import main as server_main  # mem0's server module, present only in the image
+    # mem0's db module only builds an engine and a sessionmaker; its main module builds the
+    # Memory, so the config row is checked before main is imported.
+    from db import SessionLocal  # present only in the image
 
     try:
-        check_overrides(
-            read_overrides(server_main.SessionLocal), load_settings(os.environ).overrides()
-        )
+        check_overrides(read_overrides(SessionLocal), load_settings(os.environ).overrides())
     except (StartupError, SettingsError) as exc:
         log.error("%s", exc)
         sys.exit(1)
 
+    import main as server_main  # mem0's server module, present only in the image
     import uvicorn
 
     uvicorn.run(

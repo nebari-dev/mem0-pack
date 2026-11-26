@@ -96,16 +96,16 @@ Builder's calls (delegated):
 
   | Method | Path | Extra rule |
   |---|---|---|
-  | `POST` | `/memories` | |
+  | `POST` | `/memories` | scoped (below), in the top-level fields |
   | `GET` | `/memories` | scoped (below); other query params limited to `top_k`, `show_expired` |
   | `GET` | `/memories/{id}` | |
   | `DELETE` | `/memories/{id}` | |
   | `POST` | `/search` | scoped (below), in `filters` or the deprecated top-level fields |
   | `GET` | `/healthz`, `/readyz` | answered by the wrapper, no auth |
 
-  **Scoped** means: at least one of `user_id`, `agent_id`, `run_id`; every one present is a non-empty string that is not `"*"`; `filters` contains no keys other than those three, and no `AND`/`OR`/`NOT` and no operator dicts. Anything else gets `400 {"detail":"..."}` before mem0 sees it. Everything not in the table gets `404 {"detail":"Not Found"}`, the same shape FastAPI uses. `{id}` must match a UUID.
+  **Scoped** means: a `user_id` (every Tapas memory belongs to a person; `agent_id` and `run_id` only narrow it), optionally `agent_id` and `run_id`; every one present is a non-empty string that is not `"*"`; `filters` contains no keys other than those three, and no `AND`/`OR`/`NOT` and no operator dicts. Anything else gets `400 {"detail":"..."}` before mem0 sees it. Everything not in the table gets `404 {"detail":"Not Found"}`, the same shape FastAPI uses. `{id}` must match a UUID.
 - `health.py`: `/healthz` returns 200 if the process runs. `/readyz` runs `SELECT 1` through mem0's `SessionLocal` with a 2 s timeout.
-- `serve.py`: sets `JWT_SECRET` to 48 random bytes (base64) if unset, because mem0 refuses to start without it (`server/main.py:90-94`) and nothing uses it once `/auth` is closed. Sets `MEM0_TELEMETRY=false` if unset. Imports `main`, then reads the `config_overrides` row and exits non-zero unless it equals `load_settings(env).overrides()` (so a missing or stale row can't silently fall back to OpenAI). Wraps `main.app` with health then allowlist, runs uvicorn on `0.0.0.0:8000`, one worker, no reload.
+- `serve.py`: sets `JWT_SECRET` to 48 random bytes (base64) if unset, because mem0 refuses to start without it (`server/main.py:90-94`) and nothing uses it once `/auth` is closed. Sets `MEM0_TELEMETRY=false` if unset. Reads the `config_overrides` row through mem0's side-effect-free `db.SessionLocal` and exits non-zero unless it equals `load_settings(env).overrides()`, before importing `main` (importing `main` builds mem0's `Memory` from whatever config it finds, so a missing or stale row must stop the process first). Wraps `main.app` with health then allowlist, runs uvicorn on `0.0.0.0:8000`, one worker, no reload.
 
 ### `mem0-pack-tools` (Go, `tools/`; issues #6, #7)
 
@@ -209,7 +209,7 @@ Promote? values were set by the builder under the owner's delegation (2026-11-25
 | llm-serving-pack internal endpoint (`/v1/chat/completions`, `/v1/embeddings`, JWT with groups and audience) | unchanged | llm-serving-pack | token-proxy (on mem0's behalf) | n/a (external) | no | Embeddings route unverified until #3's live run |
 | Image names and values tag paths | new | mem0-pack | release.yaml `tag-paths` | n/a (new) | n/a | `quay.io/nebari/mem0-pack-server` and `-tools`; values `image.tag`, `tools.image.tag` |
 
-**mem0 REST subset.** Promises the allowlisted methods and paths with mem0 v2.2.1's request and response shapes, authenticated by `X-API-Key: <admin key>`. Requires every list and search to be scoped: literal, non-empty `user_id`, `agent_id` or `run_id` values, no wildcard, no logical or operator filters. Errors: 404 for anything not allowlisted, 401 without a valid key, 400 for an unscoped list or search, mem0's own 4xx/5xx otherwise. `GET /memories/{id}` answers `200 null` for an id that doesn't exist (`mem0/memory/main.py:1233-1236`). mem0 does not check ownership on by-id calls; the caller must (Tapas spec, Memory section).
+**mem0 REST subset.** Promises the allowlisted methods and paths with mem0 v2.2.1's request and response shapes, authenticated by `X-API-Key: <admin key>`. Requires every add, list and search to be scoped: a literal, non-empty `user_id`, optionally `agent_id` and `run_id`, no wildcard, no logical or operator filters. Errors: 404 for anything not allowlisted, 401 without a valid key, 400 for an unscoped add, list or search, mem0's own 4xx/5xx otherwise. `GET /memories/{id}` answers `200 null` for an id that doesn't exist (`mem0/memory/main.py:1233-1236`). mem0 does not check ownership on by-id calls; the caller must (Tapas spec, Memory section).
 
 **Admin key Secret.** Promises a Secret named by `adminKey.secretName` (default `mem0-admin-key`) in the release namespace with key `api-key`, 64 hex characters, created once and never changed by the chart. Requires callers to be listed in `callers[]`. Rotation: replace the value, restart mem0; callers re-read per tapas#15.
 
@@ -248,7 +248,7 @@ class PackSettings:
 class Rule:
     method: str
     pattern: re.Pattern
-    needs_scope: Literal["none", "query", "body"]
+    scope: Literal["none", "query", "body"]
 ```
 
 ### Method signatures
@@ -392,7 +392,7 @@ Defined by the builder under the owner's delegation (2026-11-25). Environment: k
 | 3 | The caller adds, finds, reads and deletes one person's memory, and other people's stay separate | Caller POSTs a two-message conversation for `user_id=alice, agent_id=helper`; `POST /search` for alice returns a memory containing the fact; search for `user_id=bob` returns none; `GET /memories/{id}` returns it with `user_id: alice`; `DELETE /memories/{id}` succeeds and a repeat search no longer returns it | automated: `run.sh` step `memories` | |
 | 4 | mem0's model calls carry a fresh service token, and mem0 never holds the client secret | The fake model's `/calls` shows every chat and embedding call carried a valid unexpired token; after waiting past the 20 s token life, another add succeeds and `/calls` shows a second token; the `server` container's spec and env mention neither the client secret value nor its Secret | automated: `run.sh` step `token` | |
 | 5 | Memories survive a restart of mem0 | Delete the mem0 pod; once the new one is Ready, alice's earlier search result comes back | automated: `run.sh` step `restart` | |
-| 6 | Dangerous endpoints are closed even with the key | With a valid key: `POST /auth/register`, `POST /configure`, `POST /reset`, `GET /api-keys`, `GET /entities`, `GET /requests`, `GET /docs`, `GET /openapi.json`, `POST /generate-instructions`, `GET /memories/{id}/history`, `PUT /memories/{id}`, `DELETE /memories?user_id=alice` all return 404; `GET /memories` and `POST /search` with no scope, with `user_id=*`, with an empty `user_id`, or with an `OR` filter return 400; allowed paths without a key return 401 | automated: `run.sh` step `allowlist` and `pytest image/tests/test_allowlist.py` | |
+| 6 | Dangerous endpoints are closed even with the key | With a valid key: `POST /auth/register`, `POST /configure`, `POST /reset`, `GET /api-keys`, `GET /entities`, `GET /requests`, `GET /docs`, `GET /openapi.json`, `POST /generate-instructions`, `GET /memories/{id}/history`, `PUT /memories/{id}`, `DELETE /memories?user_id=alice` all return 404; `GET /memories` and `POST /search` with no scope, with only `agent_id`, with `user_id=*`, with an empty `user_id`, or with an `OR` filter return 400, as does `POST /memories` with `user_id` `*` or missing; allowed paths without a key return 401 | automated: `run.sh` step `allowlist` and `pytest image/tests/test_allowlist.py` | |
 | 7 | Only named callers reach mem0, and only mem0 reaches its database | From a pod in a namespace not in `callers[]`, a TCP connect to mem0:8000 times out (5 s); the caller connects; from the caller pod, a TCP connect to `<fullname>-db-rw:5432` times out | automated: `run.sh` step `netpol` | |
 | 8 | mem0 works with every outbound path closed except DNS, its database, and the model and token endpoints | A second install with `tests/e2e/egress-values.yaml` (`networkPolicy.egress.enabled: true`, extra rule to the fake model only) passes steps `memories` and `token`; the image's `MEM0_TELEMETRY` is `false` | automated: `run.sh` step `egress` | |
 | 9 | Renders never drift, and upgrades keep the key | Two `helm template` runs with the same values are byte-identical; after `helm upgrade` with the same values, `mem0-admin-key` has the same `api-key` and `resourceVersion` | automated: `chart/tests/deterministic.sh` in CI and `run.sh` step `upgrade` | |

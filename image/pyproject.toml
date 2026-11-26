@@ -6,4 +6,5 @@ target-version = "py312"
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-filterwarnings = ["ignore::starlette.exceptions.StarletteDeprecationWarning"]
+# starlette 0.45.3's TestClient (pinned to match the runtime) uses an alias anyio 4.16 deprecates.
+filterwarnings = ["ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning"]

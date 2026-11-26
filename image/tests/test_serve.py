@@ -1,6 +1,10 @@
-import pytest
+from types import SimpleNamespace
 
-from mem0pack.serve import StartupError, check_overrides, ensure_dirs, ensure_env
+import pytest
+from starlette.responses import PlainTextResponse
+from starlette.testclient import TestClient
+
+from mem0pack.serve import StartupError, build_app, check_overrides, ensure_dirs, ensure_env
 
 
 def test_ensure_env_sets_missing_jwt_secret_and_telemetry():
@@ -59,3 +63,37 @@ def test_check_overrides_raises(actual, message):
 
 def test_check_overrides_equal_passes():
     check_overrides(dict(EXPECTED), EXPECTED)
+
+
+class _Session:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, *_):
+        return None
+
+
+def test_build_app_orders_health_then_allowlist():
+    reached = []
+
+    async def fake_app(scope, receive, send):
+        reached.append(scope["path"])
+        await PlainTextResponse("inner")(scope, receive, send)
+
+    client = TestClient(build_app(SimpleNamespace(app=fake_app, SessionLocal=_Session)))
+
+    assert client.get("/healthz").status_code == 200
+    assert reached == []
+
+    resp = client.post("/configure")
+    assert resp.status_code == 404
+    assert resp.json() == {"detail": "Not Found"}
+    assert reached == []
+
+    resp = client.get("/memories", params={"user_id": "a"})
+    assert resp.status_code == 200
+    assert resp.text == "inner"
+    assert reached == ["/memories"]
