@@ -1,0 +1,45 @@
+name: E2E
+
+on:
+  pull_request:
+    paths:
+      - "chart/**"
+      - "image/**"
+      - "tools/**"
+      - "tests/e2e/**"
+      - ".github/workflows/e2e.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  KIND_VERSION: v0.33.0
+  # sha256 of kind-linux-amd64, from the release's kind-linux-amd64.sha256sum
+  KIND_SHA256: aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d
+
+jobs:
+  kind-journeys:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: v4.3.2
+      - uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5.2.0
+        with:
+          version: v1.35.10
+      - name: Install kind
+        run: |
+          curl -fsSL -o kind "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-amd64"
+          echo "${KIND_SHA256}  kind" | sha256sum --check --strict
+          sudo install -m 0755 kind /usr/local/bin/kind
+          rm kind
+          kind version
+      - name: Run the journeys
+        run: bash tests/e2e/kind-e2e.sh

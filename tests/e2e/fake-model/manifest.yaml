@@ -1,0 +1,66 @@
+# Fake OpenAI-compatible model and OAuth token endpoint for the e2e cluster.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fake-model
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fake-model
+  namespace: fake-model
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fake-model
+  template:
+    metadata:
+      labels:
+        app: fake-model
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: fake-model
+          image: fake-model:dev
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          env:
+            - name: CLIENT_ID
+              value: mem0
+            - name: CLIENT_SECRET
+              value: secret
+            - name: TOKEN_TTL
+              value: "20"
+            - name: DIMS
+              value: "384"
+            - name: REQUIRE_TOKEN
+              value: "true"
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fake-model
+  namespace: fake-model
+spec:
+  selector:
+    app: fake-model
+  ports:
+    - port: 8080
+      targetPort: 8080
