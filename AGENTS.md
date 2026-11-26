@@ -62,6 +62,7 @@ uvx --from check-jsonschema check-jsonschema --builtin-schema vendor.github-work
 uvx ruff@0.17.6 check tests/e2e/fake-model && uvx ruff@0.17.6 format --check tests/e2e/fake-model
 (cd tools && go vet ./... && gofmt -l .)         # gofmt must print nothing
 helm lint chart/ -f tests/e2e/ci-values.yaml
+helm lint chart/                                 # bare, as the release's sync-chart step runs it
 bash chart/tests/deterministic.sh                # two renders must be identical
 helm template test chart/ -f tests/e2e/ci-values.yaml | kubeconform -strict -ignore-missing-schemas -summary
 ```

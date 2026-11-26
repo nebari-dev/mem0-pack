@@ -91,3 +91,15 @@ seccompProfile:
 - name: MEM0PACK_EMBEDDING_DIMS
   value: {{ .Values.models.embedding.dimensions | toString | quote }}
 {{- end -}}
+
+{{/* Values with no usable default. They are checked here, not in values.schema.json, so a bare helm lint (no values) passes while an install without them fails. */}}
+{{- define "nebari-mem0.validate" -}}
+{{- if not .Values.callers -}}
+{{- fail "callers is required: list at least one service allowed to reach mem0" -}}
+{{- end -}}
+{{- required "models.baseURL is required" .Values.models.baseURL -}}
+{{- required "models.embedding.model is required" .Values.models.embedding.model -}}
+{{- required "models.embedding.dimensions is required" .Values.models.embedding.dimensions -}}
+{{- required "models.auth.tokenURL is required" .Values.models.auth.tokenURL -}}
+{{- required "models.auth.existingSecret is required" .Values.models.auth.existingSecret -}}
+{{- end -}}

@@ -86,8 +86,9 @@ Helm prints the in-cluster URL when the install finishes. If the release name co
 
 ## Values
 
-`callers` and the `models` block are required; the chart fails to render without them. Defaults
-are in `chart/values.yaml` and the shape is enforced by `chart/values.schema.json`.
+`callers` and the `models` block are required: the chart templates fail the install with a
+message naming the missing value (a bare `helm lint` still passes). Defaults are in
+`chart/values.yaml` and the types and formats are enforced by `chart/values.schema.json`.
 
 | Key | Default | Meaning |
 |---|---|---|
