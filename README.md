@@ -6,7 +6,7 @@ models: preferences they've stated, and context about the work an agent is doing
 
 Declared maturity level: **Experimental** (`level: experimental` in `pack-metadata.yaml`). The
 chart is published to the [Nebari Helm repository](https://nebari-dev.github.io/helm-repository/)
-as `nebari-mem0`, starting at the prerelease `0.1.0-alpha.2`.
+as `nebari-mem0`, starting at the prerelease `0.1.0-alpha.1` (current: `0.1.0-alpha.2`).
 
 ## Who it's for
 
@@ -185,12 +185,26 @@ request when the model lets you shorten it):
 | AWS Bedrock Titan Text Embeddings V2 | 1024 (also 512, 256) | `hnsw` |
 | Cohere `embed-v4.0` | 1536 (also 1024, 512, 256) | `hnsw` |
 | Cohere `embed-english-v3.0`, `embed-multilingual-v3.0` | 1024 | `hnsw` |
-| Google `gemini-embedding-001` | 3072 (768 and 1536 recommended) | `none` |
+| Google `gemini-embedding-001` | 3072 (768, 1536 and 3072 recommended) | `none` |
 | OpenRouter | depends on the model | check the model's page |
 
-Changing `models.embedding.index` on an existing install: from `none` to `hnsw` creates the index
-on the next start when the width is 2000 or less. From `hnsw` to `none` leaves the existing index
-in place; drop it by hand if you want it gone. The pack has no migration for either.
+Changing `models.embedding.index` on an existing install does nothing to the database. mem0
+v2.2.1 builds the HNSW index only when it creates its table (`create_col` in
+`mem0/vector_stores/pgvector.py`), and it creates the table lazily on the first memory operation.
+Once the table exists, a restart with another index value never reaches that code. The table's
+width is fixed in the same way and cannot change after first install.
+
+- `none` to `hnsw` does not create the index. Add it by hand, only when the width is 2000 or less:
+  `CREATE INDEX IF NOT EXISTS memories_hnsw_idx ON memories USING hnsw (vector vector_cosine_ops);`
+- `hnsw` to `none` leaves the existing index in place. Remove it by hand if you want it gone:
+  `DROP INDEX IF EXISTS memories_hnsw_idx;`
+
+The table and index are named after the collection, `memories` unless you changed it. Run the
+statement with psql against the pack's database, the database named by the `dbname` key of the
+database Secret: for the bundled database, in the CloudNativePG primary pod (the Cluster is named
+`<release fullname>-db`, so the pod is `<release fullname>-db-1`):
+`kubectl exec -n mem0 -it <release fullname>-db-1 -- psql -d <dbname>`; for an external database,
+with your own psql connection. The pack has no migration for either direction.
 
 ## Known limitations
 
