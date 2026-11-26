@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://nebari-dev.github.io/helm-repository
     chart: nebari-mem0
-    targetRevision: 0.1.0-alpha.1   # CHANGE to the version you want
+    targetRevision: 0.1.0-alpha.2   # CHANGE to the version you want
     helm:
       valuesObject:
         # The contents of examples/nebari-values.yaml, with the placeholders filled in.
@@ -31,6 +31,8 @@ spec:
             model: CHANGE-embedding-model
             # The output width of the embedding model. Fixed at first install.
             dimensions: 1024
+            # index: auto   # auto (default), hnsw or none. pgvector cannot build HNSW above 2000 dimensions;
+            #                # auto switches to none (exact search) there. See the README.
           auth:
             # Keycloak token endpoint of the realm that holds the mem0 client.
             tokenURL: https://keycloak.CHANGE.example.com/realms/nebari/protocol/openid-connect/token
@@ -62,6 +64,7 @@ spec:
     #         model: CHANGE-embedding-model
     #         # The output width of the embedding model. Fixed at first install.
     #         dimensions: 1024
+    #         # index: auto   # auto, hnsw or none; see the README
     #       auth:
     #         # Keycloak token endpoint of the realm that holds the mem0 client.
     #         tokenURL: https://keycloak.CHANGE.example.com/realms/nebari/protocol/openid-connect/token
