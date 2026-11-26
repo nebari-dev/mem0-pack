@@ -1,0 +1,23 @@
+image:
+  repository: mem0-pack-server
+  tag: dev
+  pullPolicy: Never
+tools:
+  image:
+    repository: mem0-pack-tools
+    tag: dev
+    pullPolicy: Never
+models:
+  baseURL: http://fake-model.fake-model.svc:8080/v1
+  llm: fake-chat
+  embedding:
+    model: fake-embedding
+    dimensions: 384
+  auth:
+    tokenURL: http://fake-model.fake-model.svc:8080/token
+    existingSecret: model-client
+callers:
+  - namespace: tapas-sim
+    serviceAccount: gateway
+    podSelector:
+      app: tapas-gateway

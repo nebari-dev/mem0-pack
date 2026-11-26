@@ -109,7 +109,7 @@ Builder's calls (delegated):
 
 ### `mem0-pack-tools` (Go, `tools/`; issues #6, #7)
 
-- `token-proxy`: listens on `127.0.0.1:8081` only. For each request: get a token (cached; refreshed when less than 30 s or 25% of its life remains, whichever is smaller), drop the caller's `Authorization`, set `Authorization: Bearer <token>`, forward to `UPSTREAM_URL` with `httputil.ReverseProxy`. Token: `POST TOKEN_URL` with `grant_type=client_credentials`, client id and secret read from files (mounted Secret), optional `scope`. A failed token fetch answers `502` with a JSON error and logs it; it never forwards without a token. A separate listener on `0.0.0.0:8082` answers only `GET /healthz` (200 once a token has been fetched once). Runs as a native sidecar (init container with `restartPolicy: Always`) so it is up before mem0 starts.
+- `token-proxy`: fetches its first token at start, retrying with backoff until it succeeds, then listens on `127.0.0.1:8081` only. For each request: get a token (cached; refreshed when less than 30 s or 25% of its life remains, whichever is smaller), drop the caller's `Authorization`, set `Authorization: Bearer <token>`, forward to `UPSTREAM_URL` with `httputil.ReverseProxy`. Token: `POST TOKEN_URL` with `grant_type=client_credentials`, client id and secret read from files (mounted Secret), optional `scope`. A failed token fetch answers `502` with a JSON error and logs it; it never forwards without a token. A separate listener on `0.0.0.0:8082` answers only `GET /healthz` (200 once a token has been fetched once). Runs as a native sidecar (init container with `restartPolicy: Always`) so it is up before mem0 starts.
 - `ensure-secret -name N -key K`: creates Secret `N` in its own namespace with key `K` = 32 random bytes hex-encoded. `409 AlreadyExists` is success and the existing value is never read or changed. Uses the in-cluster ServiceAccount token and CA; no client-go (stdlib `net/http`), to keep the binary small.
 - Logs with `log/slog` JSON; errors wrapped `fmt.Errorf("verb noun: %w", err)`.
 
@@ -135,10 +135,10 @@ Values sketch:
 image: {repository: quay.io/nebari/mem0-pack-server, tag: "", digest: ""}
 tools: {image: {repository: quay.io/nebari/mem0-pack-tools, tag: "", digest: ""}}
 adminKey: {secretName: mem0-admin-key, existingSecret: ""}
-callers:
-  - namespace: javo
-    serviceAccount: javo-gateway
-    podSelector: {app.kubernetes.io/name: javo, app.kubernetes.io/component: gateway}
+callers: []   # required; for Tapas installed as javo-pack:
+#  - namespace: javo
+#    serviceAccount: javo-gateway
+#    podSelector: {app.kubernetes.io/name: javo, app.kubernetes.io/component: gateway}
 models:
   baseURL: https://llm-internal.example.com/v1    # llm-serving-pack internal endpoint
   llm: Qwen/Qwen3.5-35B-A3B-GPTQ-Int4

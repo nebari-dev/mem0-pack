@@ -1,0 +1,52 @@
+suite: values schema
+templates:
+  - templates/deployment.yaml
+tests:
+  - it: renders with all required values
+    values: [required-values.yaml]
+    asserts:
+      - hasDocuments: {count: 1}
+
+  - it: fails without embedding dimensions
+    values: [required-values.yaml]
+    set:
+      models.embedding.dimensions: null
+    asserts:
+      - failedTemplate: {}
+
+  - it: fails without the model auth Secret
+    values: [required-values.yaml]
+    set:
+      models.auth.existingSecret: ""
+    asserts:
+      - failedTemplate: {}
+
+  - it: fails without the token URL
+    values: [required-values.yaml]
+    set:
+      models.auth.tokenURL: ""
+    asserts:
+      - failedTemplate: {}
+
+  - it: fails without callers
+    values: [required-values.yaml]
+    set:
+      callers: []
+    asserts:
+      - failedTemplate: {}
+
+  - it: fails when image tag and digest are both empty
+    values: [required-values.yaml]
+    set:
+      image.tag: ""
+      image.digest: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: set a tag or digest
+
+  - it: fails with the chart defaults for callers
+    values: [required-values.yaml]
+    set:
+      callers: null
+    asserts:
+      - failedTemplate: {}
