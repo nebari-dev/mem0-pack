@@ -14,7 +14,9 @@ PG="mem0-smoke-pg-$SUFFIX"
 MODEL="mem0-smoke-model-$SUFFIX"
 SERVER="mem0-smoke-server-$SUFFIX"
 FAKE_IMAGE="mem0-smoke-fake-model:$SUFFIX"
-DIMS=384
+# 2048 is above pgvector's 2000-dimension HNSW limit: this run proves index=auto copes with it.
+# Set SMOKE_DIMS=384 to check the HNSW path.
+DIMS="${SMOKE_DIMS:-2048}"
 API_KEY="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 
 cleanup() {
@@ -87,6 +89,12 @@ found="$(curl -s -X POST "$BASE/search" -H "X-API-Key: $API_KEY" -H 'Content-Typ
   -d '{"query":"hiking in the Alps","filters":{"user_id":"alice"}}')"
 echo "$found" | grep -q 'hiking' || { docker logs "$SERVER" >&2; fail "search did not find the memory: $found"; }
 echo "memory added and found"
+
+echo "== index"
+hnsw_idx="$(psql_super -d mem0 -tA -c "SELECT count(*) FROM pg_indexes WHERE indexdef LIKE '%USING hnsw%'")"
+if [ "$DIMS" -gt 2000 ]; then want=0; else want=1; fi
+[ "$hnsw_idx" = "$want" ] || fail "expected $want hnsw indexes at $DIMS dimensions, found $hnsw_idx"
+echo "$hnsw_idx hnsw index(es) at $DIMS dimensions"
 
 echo "== allowlist"
 status() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
