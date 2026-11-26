@@ -6,7 +6,7 @@ models: preferences they've stated, and context about the work an agent is doing
 
 Declared maturity level: **Experimental** (`level: experimental` in `pack-metadata.yaml`). The
 chart is published to the [Nebari Helm repository](https://nebari-dev.github.io/helm-repository/)
-as `nebari-mem0`, starting at the prerelease `0.1.0-alpha.1`.
+as `nebari-mem0`, starting at the prerelease `0.1.0-alpha.1` (current: `0.1.0-alpha.2`).
 
 ## Who it's for
 
@@ -69,13 +69,13 @@ published chart:
 ```sh
 helm repo add nebari https://raw.githubusercontent.com/nebari-dev/helm-repository/gh-pages/
 helm repo update nebari
-helm install mem0 nebari/nebari-mem0 --version 0.1.0-alpha.1 -n mem0 -f my-values.yaml
+helm install mem0 nebari/nebari-mem0 --version 0.1.0-alpha.2 -n mem0 -f my-values.yaml
 ```
 
 or, without adding a repository, from the OCI registry:
 
 ```sh
-helm install mem0 oci://quay.io/nebari/charts/nebari-mem0 --version 0.1.0-alpha.1 \
+helm install mem0 oci://quay.io/nebari/charts/nebari-mem0 --version 0.1.0-alpha.2 \
   -n mem0 -f my-values.yaml
 ```
 
@@ -117,6 +117,7 @@ message naming the missing value (a bare `helm lint` still passes). Defaults are
 | `models.llm` | `Qwen/Qwen3.5-35B-A3B-GPTQ-Int4` | Chat model name. |
 | `models.embedding.model` | empty (required) | Embedding model name. |
 | `models.embedding.dimensions` | `null` (required) | Output width of the embedding model. The vector column is created with this width at first install. |
+| `models.embedding.index` | `auto` | Approximate-search index on the vector column: `auto` (`hnsw` up to 2000 dimensions, `none` above), `hnsw` (refused above 2000) or `none` (exact search). See [Embedding width and the index](#embedding-width-and-the-index). |
 | `models.auth.tokenURL` | empty (required) | Keycloak token endpoint. |
 | `models.auth.scope` | empty | Optional scope for the token request. |
 | `models.auth.existingSecret` | empty (required) | Secret with keys `client-id` and `client-secret`, created before install. |
@@ -161,6 +162,49 @@ What a caller needs to know:
 - **By-id calls.** `GET /memories/{id}` answers `200` with `null` for an id that does not exist.
   mem0 does not check ownership on get or delete by id, so the caller must confirm the memory
   belongs to the person before acting on it.
+
+## Embedding width and the index
+
+mem0 creates a pgvector HNSW index on its vector column by default. pgvector supports HNSW on the
+`vector` type only up to 2000 dimensions ([pgvector v0.8.7 README, "Supported types"](https://github.com/pgvector/pgvector/blob/v0.8.7/README.md#indexing)),
+so a wider embedding makes mem0 fail to create its table. `models.embedding.index` avoids that:
+
+- `auto` (default): `hnsw` when `dimensions` is 2000 or less, `none` above.
+- `none`: no approximate index. mem0 does exact search, which is fine at the scale of one person's
+  memories.
+- `hnsw`: always build the index. The chart refuses it with more than 2000 dimensions (the schema
+  error reads `'not' failed` at `/models/embedding/index`), and so does the server image at start.
+
+Widths of common models, from the providers' documentation (set `dimensions` to the width you
+request when the model lets you shorten it):
+
+| Model | Default width | Index under `auto` |
+| --- | --- | --- |
+| OpenAI `text-embedding-3-small` | 1536 | `hnsw` |
+| OpenAI `text-embedding-3-large` | 3072 | `none` |
+| AWS Bedrock Titan Text Embeddings V2 | 1024 (also 512, 256) | `hnsw` |
+| Cohere `embed-v4.0` | 1536 (also 1024, 512, 256) | `hnsw` |
+| Cohere `embed-english-v3.0`, `embed-multilingual-v3.0` | 1024 | `hnsw` |
+| Google `gemini-embedding-001` | 3072 (768, 1536 and 3072 recommended) | `none` |
+| OpenRouter | depends on the model | check the model's page |
+
+Changing `models.embedding.index` on an existing install does nothing to the database. mem0
+v2.2.1 builds the HNSW index only when it creates its table (`create_col` in
+`mem0/vector_stores/pgvector.py`), and it creates the table lazily on the first memory operation.
+Once the table exists, a restart with another index value never reaches that code. The table's
+width is fixed in the same way and cannot change after first install.
+
+- `none` to `hnsw` does not create the index. Add it by hand, only when the width is 2000 or less:
+  `CREATE INDEX IF NOT EXISTS memories_hnsw_idx ON memories USING hnsw (vector vector_cosine_ops);`
+- `hnsw` to `none` leaves the existing index in place. Remove it by hand if you want it gone:
+  `DROP INDEX IF EXISTS memories_hnsw_idx;`
+
+The table and index are named after the collection, `memories` unless you changed it. Run the
+statement with psql against the pack's database, the database named by the `dbname` key of the
+database Secret: for the bundled database, in the CloudNativePG primary pod (the Cluster is named
+`<release fullname>-db`, so the pod is `<release fullname>-db-1`):
+`kubectl exec -n mem0 -it <release fullname>-db-1 -- psql -d <dbname>`; for an external database,
+with your own psql connection. The pack has no migration for either direction.
 
 ## Known limitations
 

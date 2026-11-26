@@ -1,7 +1,7 @@
 # Values for a Nebari Infrastructure Core (NIC) cluster where Tapas is installed as javo-pack in
 # the namespace "javo". Change the placeholders marked CHANGE; leave the rest.
 # Install the published chart (see the README, Install):
-#   helm install mem0 nebari/nebari-mem0 --version 0.1.0-alpha.1 -n mem0 --create-namespace \
+#   helm install mem0 nebari/nebari-mem0 --version 0.1.0-alpha.2 -n mem0 --create-namespace \
 #     -f my-values.yaml
 
 # Image tags are not set here: the published chart pins them to the release commit. When you
@@ -31,6 +31,8 @@ models:
     model: CHANGE-embedding-model
     # The output width of the embedding model. Fixed at first install.
     dimensions: 1024
+    # index: auto   # auto (default), hnsw or none. pgvector cannot build HNSW above 2000 dimensions;
+    #                # auto switches to none (exact search) there. See the README.
   auth:
     # Keycloak token endpoint of the realm that holds the mem0 client.
     tokenURL: https://keycloak.CHANGE.example.com/realms/nebari/protocol/openid-connect/token
