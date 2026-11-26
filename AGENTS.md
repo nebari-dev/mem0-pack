@@ -20,13 +20,13 @@ the template's examples, docs site and their workflows have been removed. What i
 - `tests/e2e/fake-model/`: a stdlib Python fake model server for end-to-end tests.
 - `.github/`: workflows for lint, unit tests, image builds and release, plus
   `.github/scripts/check-template-leftovers.sh`, which fails if template identifiers return to
-  `.github/` or `dev/` or if `release.yaml`'s `release` job is not disabled (`if: false`).
+  `.github/` or `dev/`.
 - `docs/architecture/` holds this pack's contracts. `docs/*.md` (auth flow, NebariApp CRD
   reference, release-readiness checklist, docs-site requirements) are template reference docs:
   useful as specs, not as pack docs. `docs/superpowers/` holds design specs and plans.
 
-`release.yaml` points at
-`chart/` with chart name `nebari-mem0` but stays disabled until the first release is cut.
+`release.yaml` releases `chart/` as `nebari-mem0` whenever `chart/Chart.yaml`'s version changes on
+`main`.
 `dev/Makefile` targets (`kind-up`, `e2e`, `down`) call `tests/e2e/kind-e2e.sh`.
 
 ## Pack design constraints (from README.md and pack-metadata.yaml)
@@ -62,6 +62,7 @@ uvx --from check-jsonschema check-jsonschema --builtin-schema vendor.github-work
 uvx ruff@0.17.6 check tests/e2e/fake-model && uvx ruff@0.17.6 format --check tests/e2e/fake-model
 (cd tools && go vet ./... && gofmt -l .)         # gofmt must print nothing
 helm lint chart/ -f tests/e2e/ci-values.yaml
+helm lint chart/                                 # bare, as the release's sync-chart step runs it
 bash chart/tests/deterministic.sh                # two renders must be identical
 helm template test chart/ -f tests/e2e/ci-values.yaml | kubeconform -strict -ignore-missing-schemas -summary
 ```
@@ -97,4 +98,7 @@ New chart checks go in `lint.yaml` (static) or `test.yaml` (unit) and in this se
 Releases go through reusable workflows in `nebari-dev/.github` (`pack-release.yaml@v1`,
 `pack-build-image.yaml@v1`). A `Chart.yaml` version bump on `main` triggers both: the release
 pins image tags to `sha-<release-commit>` and opens a PR in `nebari-dev/helm-repository`, so the
-image build must also trigger on that `Chart.yaml` path or the pinned tag will not exist.
+image build must also trigger on that `Chart.yaml` path or the pinned tag will not exist. The
+shared workflow names the GitHub Release and tag `nebari-mem0-<version>` (for example
+`nebari-mem0-0.1.0-alpha.1`) and has no input to change it, so this pack does not follow the
+checklist's `v<version>` tag form. A version with a `-` suffix is released as a prerelease.

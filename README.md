@@ -4,8 +4,9 @@ A Nebari software pack that runs [mem0](https://github.com/mem0ai/mem0), an open
 layer for AI agents. It gives each person a memory that persists across agents, sessions and
 models: preferences they've stated, and context about the work an agent is doing for them.
 
-Declared maturity level: **Experimental** (`level: experimental` in `pack-metadata.yaml`). No
-chart version is published yet (#12), so you install from a checkout of this repository.
+Declared maturity level: **Experimental** (`level: experimental` in `pack-metadata.yaml`). The
+chart is published to the [Nebari Helm repository](https://nebari-dev.github.io/helm-repository/)
+as `nebari-mem0`, starting at the prerelease `0.1.0-alpha.1`.
 
 ## Who it's for
 
@@ -62,18 +63,33 @@ is responsible for scoping each request to the right person.
 ## Install
 
 Copy `examples/nebari-values.yaml` to `my-values.yaml` and change the placeholders: model
-endpoint, model names, embedding dimension, Keycloak token URL and Secret name. Then, from a
-checkout of this repository, with both image tags set (see below):
+endpoint, model names, embedding dimension, Keycloak token URL and Secret name. Then install the
+published chart:
+
+```sh
+helm repo add nebari https://raw.githubusercontent.com/nebari-dev/helm-repository/gh-pages/
+helm repo update nebari
+helm install mem0 nebari/nebari-mem0 --version 0.1.0-alpha.1 -n mem0 -f my-values.yaml
+```
+
+or, without adding a repository, from the OCI registry:
+
+```sh
+helm install mem0 oci://quay.io/nebari/charts/nebari-mem0 --version 0.1.0-alpha.1 \
+  -n mem0 -f my-values.yaml
+```
+
+The published chart pins both image tags to its release commit, so leave `image.tag` and
+`tools.image.tag` unset. A prerelease is only installed when you name its version.
+`examples/argocd-app.yaml` is the same install as an Argo CD Application.
+
+To install from a checkout of this repository instead, set both image tags to images CI pushed
+for that commit, because a checkout has no pinned tags:
 
 ```sh
 helm install mem0 ./chart -n mem0 -f my-values.yaml \
   --set image.tag=sha-<commit> --set tools.image.tag=sha-<commit>
 ```
-
-A checkout has no pinned image tags, so from a checkout you must set `image.tag` and
-`tools.image.tag` to images CI pushed for that commit (`sha-<commit>`). Once #12 publishes the
-chart, the release pins them and you leave them unset. `examples/argocd-app.yaml` is the same
-install as an Argo CD Application.
 
 Check it came up:
 
@@ -86,8 +102,9 @@ Helm prints the in-cluster URL when the install finishes. If the release name co
 
 ## Values
 
-`callers` and the `models` block are required; the chart fails to render without them. Defaults
-are in `chart/values.yaml` and the shape is enforced by `chart/values.schema.json`.
+`callers` and the `models` block are required: the chart templates fail the install with a
+message naming the missing value (a bare `helm lint` still passes). Defaults are in
+`chart/values.yaml` and the types and formats are enforced by `chart/values.schema.json`.
 
 | Key | Default | Meaning |
 |---|---|---|

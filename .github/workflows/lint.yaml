@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       - run: bash .github/scripts/check-template-leftovers.sh
 
   metadata:
@@ -66,6 +65,9 @@ jobs:
           version: v4.3.2
       - name: helm lint
         run: helm lint chart/ -f tests/e2e/ci-values.yaml
+      # The release's sync-chart step runs helm lint with no values file.
+      - name: helm lint (no values)
+        run: helm lint chart/
       - name: deterministic render
         run: bash chart/tests/deterministic.sh
       - name: kubeconform

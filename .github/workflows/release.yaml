@@ -28,9 +28,6 @@ on:
 
 jobs:
   release:
-    # Disabled until the first release is cut (nebari-dev/mem0-pack#12). Keep
-    # this false until then; lint CI checks it.
-    if: false
     permissions:
       contents: write
     uses: nebari-dev/.github/.github/workflows/pack-release.yaml@v1

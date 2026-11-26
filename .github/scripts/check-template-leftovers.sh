@@ -17,19 +17,6 @@ if [ -n "$hits" ]; then
     status=1
 fi
 
-release_if=$(uv run --no-project --quiet --with pyyaml python - <<'PY'
-import yaml
-
-with open(".github/workflows/release.yaml") as f:
-    doc = yaml.safe_load(f)
-print(repr(doc["jobs"]["release"].get("if")))
-PY
-)
-if [ "$release_if" != "False" ]; then
-    echo "release.yaml: jobs.release.if must be false until the first release is cut (found: $release_if)"
-    status=1
-fi
-
 if [ "$status" -eq 0 ]; then
     echo "No template leftovers."
 fi
