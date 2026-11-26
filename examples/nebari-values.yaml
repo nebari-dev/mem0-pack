@@ -1,0 +1,57 @@
+# Values for a Nebari Infrastructure Core (NIC) cluster where Tapas is installed as javo-pack in
+# the namespace "javo". Change the placeholders marked CHANGE; leave the rest.
+# Install from a checkout (see the README, Install; a checkout has no pinned image tags):
+#   helm install mem0 ./chart -n mem0 --create-namespace -f my-values.yaml \
+#     --set image.tag=sha-<commit> --set tools.image.tag=sha-<commit>
+
+# Image tags are not set here: the published chart pins them to the release commit. When you
+# install from a checkout (no chart is published until #12), the chart has no pinned tags, so set
+# both to images CI pushed for that commit:
+# image:
+#   tag: sha-0123456789abcdef
+# tools:
+#   image:
+#     tag: sha-0123456789abcdef
+
+# Who may call mem0 and read the admin key Secret. For Tapas as javo-pack. The account depends on
+# Tapas's database.engine: javo-controller for sqlite (its default; gateway and controller share one
+# pod), javo-gateway for postgres. The pod labels are the same for both engines.
+callers:
+  - namespace: javo
+    serviceAccount: javo-controller   # javo-gateway if Tapas runs database.engine=postgres
+    podSelector:
+      app.kubernetes.io/name: javo
+      app.kubernetes.io/component: gateway
+
+models:
+  # llm-serving-pack's internal endpoint, with the /v1 prefix.
+  baseURL: https://llm-internal.CHANGE.example.com/v1
+  llm: CHANGE-chat-model
+  embedding:
+    model: CHANGE-embedding-model
+    # The output width of the embedding model. Fixed at first install.
+    dimensions: 1024
+  auth:
+    # Keycloak token endpoint of the realm that holds the mem0 client.
+    tokenURL: https://keycloak.CHANGE.example.com/realms/nebari/protocol/openid-connect/token
+    # Secret in the release namespace with keys client-id and client-secret, created before install.
+    existingSecret: mem0-model-client
+
+# Egress is off, so the server pod can reach anything its cluster allows. To close it, set
+# enabled: true and allow the model endpoint, the Keycloak token endpoint and (for an external
+# database) Postgres. The rules are NetworkPolicyEgressRule objects and must match where the
+# https hostnames above resolve, which is usually a gateway address on port 443 (CHANGE the
+# addresses below). If they resolve to an in-cluster Service, use a namespaceSelector and the
+# Service's target port instead.
+# networkPolicy:
+#   egress:
+#     enabled: true
+#     extra:
+#       - to:
+#           - ipBlock: {cidr: 192.0.2.10/32}   # CHANGE: where llm-internal.CHANGE.example.com resolves
+#         ports:
+#           - {protocol: TCP, port: 443}
+#       - to:
+#           - ipBlock: {cidr: 192.0.2.11/32}   # CHANGE: where keycloak.CHANGE.example.com resolves
+#         ports:
+#           - {protocol: TCP, port: 443}

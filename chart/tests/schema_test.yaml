@@ -21,6 +21,20 @@ tests:
     asserts:
       - failedTemplate: {}
 
+  - it: fails without the model base URL
+    values: [required-values.yaml]
+    set:
+      models.baseURL: ""
+    asserts:
+      - failedTemplate: {}
+
+  - it: fails when models.baseURL is unset
+    values: [required-values.yaml]
+    set:
+      models.baseURL: null
+    asserts:
+      - failedTemplate: {}
+
   - it: fails without the token URL
     values: [required-values.yaml]
     set:

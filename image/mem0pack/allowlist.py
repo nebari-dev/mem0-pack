@@ -36,11 +36,16 @@ RULES: tuple[Rule, ...] = (
 
 
 def _value_error(key: str, value) -> str | None:
-    """A scope value must be a literal non-empty string and not the wildcard."""
+    """A scope value must be a literal non-empty string, not the wildcard, with no padding.
+
+    mem0 strips surrounding whitespace before using an id, so " alice" would act on alice's.
+    """
     if not isinstance(value, str) or value == "":
         return f"{key} must be a non-empty string"
     if value == "*":
         return f"{key} must not be a wildcard"
+    if value != value.strip():
+        return f"{key} must not have leading or trailing whitespace"
     return None
 
 

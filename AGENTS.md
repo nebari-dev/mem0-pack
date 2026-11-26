@@ -9,8 +9,12 @@ the template's examples, docs site and their workflows have been removed. What i
 
 - `image/`: the mem0 server image (Python, with its tests, `requirements*.txt` and `smoke.sh`).
 - `chart/`: the Helm chart (`nebari-mem0`): mem0 server Deployment and Service, a CloudNativePG
-  database, the create-once secret generator, the caller grant, a values schema and helm-unittest
-  suites under `chart/tests/`.
+  database (or an external Postgres with pgvector), the create-once secret generator, the caller
+  grant, a values schema and helm-unittest suites under `chart/tests/`.
+- `README.md` is the install guide: prerequisites (including the Keycloak client the pack does not
+  create), install, values table, the caller contract and known limitations. `examples/` holds
+  `nebari-values.yaml` (Tapas as javo-pack) and `argocd-app.yaml`. When you add or change a value
+  in `chart/values.yaml`, update the README values table and the example in the same change.
 - `tools/`: a Go module for the tools image (token proxy sidecar and the create-once secret
   generator).
 - `tests/e2e/fake-model/`: a stdlib Python fake model server for end-to-end tests.
@@ -21,7 +25,7 @@ the template's examples, docs site and their workflows have been removed. What i
   reference, release-readiness checklist, docs-site requirements) are template reference docs:
   useful as specs, not as pack docs. `docs/superpowers/` holds design specs and plans.
 
-Not in the chart yet: the external-Postgres option. `release.yaml` points at
+`release.yaml` points at
 `chart/` with chart name `nebari-mem0` but stays disabled until the first release is cut.
 `dev/Makefile` targets (`kind-up`, `e2e`, `down`) call `tests/e2e/kind-e2e.sh`.
 
@@ -69,6 +73,7 @@ helm template test chart/ -f tests/e2e/ci-values.yaml | kubeconform -strict -ign
 uv run --no-project --with pytest pytest -q tests/e2e/fake-model
 (cd tools && go test ./... -race -count=1)
 helm unittest chart/                             # needs the helm-unittest plugin (v1.2.1 in CI)
+bash chart/tests/values-wiring.sh                # needs helm, jq and yq (mikefarah)
 ```
 
 `.github/workflows/e2e.yaml` runs the kind journeys on pull requests touching `chart/`, `image/`, `tools/`
