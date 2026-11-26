@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Journey steps for the end-to-end run: run.sh [STEP...]
-# Steps: install grant memories token restart allowlist upgrade image
+# Steps: install grant memories token restart allowlist upgrade image netpol egress
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -235,7 +235,51 @@ step_image() {
   fi
 }
 
-ALL_STEPS=(install grant memories token restart allowlist upgrade image)
+step_netpol() {
+  step 7 "only named callers reach mem0, and only mem0 reaches its database"
+  local db="${FULL}-db-rw.${NS}.svc"
+  assert_eq 7 "outsider to mem0:8000" timeout "$(tcp_probe outsider outsider "${FULL}.${NS}.svc" 8000)"
+  assert_eq 7 "stranger (tapas-sim, not the named pod) to mem0:8000" timeout \
+    "$(tcp_probe "$CALLER_NS" stranger "${FULL}.${NS}.svc" 8000)"
+  assert_eq 7 "caller to mem0:8000" connected "$(tcp_probe "$CALLER_NS" caller "${FULL}.${NS}.svc" 8000)"
+  assert_eq 7 "caller to ${db}:5432" timeout "$(tcp_probe "$CALLER_NS" caller "$db" 5432)"
+  assert_eq 7 "outsider to ${db}:5432" timeout "$(tcp_probe outsider outsider "$db" 5432)"
+}
+
+step_egress() {
+  step 8 "mem0 works with egress closed except DNS, its database and the model endpoints"
+  helm --kube-context "$CONTEXT" upgrade "$RELEASE" "$CHART_DIR" -n "$NS" \
+    -f "$E2E_DIR/ci-values.yaml" -f "$E2E_DIR/egress-values.yaml" || fail 8 "helm upgrade with egress failed"
+  wait_ready || fail 8 "not ready with egress closed"
+  # The Deployment has no values checksum, so restart it: the migrate init container, the
+  # token-proxy's first fetch and the server start must all succeed under closed egress.
+  restart_mem0 || fail 8 "mem0 did not come back under closed egress"
+  assert_eq 8 "server policy has an Egress policyType" Egress \
+    "$(k -n "$NS" get networkpolicy "$FULL" -o jsonpath='{.spec.policyTypes[1]}')"
+  local pod
+  pod="$(server_pod)"
+  # The CNI must really enforce egress: a destination the policy does not allow is dropped from
+  # the server container, while the fake model stays reachable.
+  assert_eq 8 "server to kubernetes.default.svc:443 (not allowed)" timeout \
+    "$(tcp_probe "$NS" "$pod" kubernetes.default.svc 443 server)"
+  assert_eq 8 "server to the caller pod (not allowed)" timeout \
+    "$(tcp_probe "$NS" "$pod" "$(k -n "$CALLER_NS" get pod caller -o jsonpath='{.status.podIP}')" 8080 server)"
+  assert_eq 8 "server to fake-model:8080 (allowed)" connected \
+    "$(tcp_probe "$NS" "$pod" fake-model.fake-model.svc 8080 server)"
+  step_memories
+  step_token
+  JOURNEY=8
+  pod="$(server_pod)"
+  assert_eq 8 "MEM0_TELEMETRY in the server container" false \
+    "$(k -n "$NS" exec "$pod" -c server -- printenv MEM0_TELEMETRY)"
+  helm --kube-context "$CONTEXT" upgrade "$RELEASE" "$CHART_DIR" -n "$NS" \
+    -f "$E2E_DIR/ci-values.yaml" || fail 8 "helm upgrade back to ci-values failed"
+  wait_ready || fail 8 "not ready after reverting egress"
+  restart_mem0 || fail 8 "mem0 did not come back after reverting egress"
+  JOURNEY=
+}
+
+ALL_STEPS=(install grant memories token restart allowlist upgrade image netpol egress)
 STEPS=("$@")
 [ ${#STEPS[@]} -gt 0 ] || STEPS=("${ALL_STEPS[@]}")
 for s in "${STEPS[@]}"; do

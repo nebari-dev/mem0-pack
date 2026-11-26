@@ -1,0 +1,13 @@
+# Layered over ci-values.yaml by the egress step: close every outbound path from the mem0 pod
+# except DNS, the bundled database and the fake model (model and token endpoints, port 8080).
+networkPolicy:
+  egress:
+    enabled: true
+    extra:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: fake-model
+        ports:
+          - protocol: TCP
+            port: 8080

@@ -61,7 +61,12 @@ history:
 networkPolicy:
   enabled: true
   egress:
+    # When true the server pod may reach only DNS (kube-system) and the bundled database.
     enabled: false
+    # NetworkPolicyEgressRule objects rendered verbatim. The migrate init container and the
+    # token-proxy share the server pod's policy, so with egress enabled these rules must cover
+    # the model endpoint (models.baseURL) and the token endpoint (models.auth.tokenURL), and the
+    # external database when postgres.bundled.enabled is false.
     extra: []
 
 podSecurityContext:

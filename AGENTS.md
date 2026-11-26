@@ -21,15 +21,14 @@ the template's examples, docs site and their workflows have been removed. What i
   reference, release-readiness checklist, docs-site requirements) are template reference docs:
   useful as specs, not as pack docs. `docs/superpowers/` holds design specs and plans.
 
-Not in the chart yet: NetworkPolicies and the external-Postgres option. `release.yaml` points at
+Not in the chart yet: the external-Postgres option. `release.yaml` points at
 `chart/` with chart name `nebari-mem0` but stays disabled until the first release is cut.
 `dev/Makefile` targets (`kind-up`, `e2e`, `down`) call `tests/e2e/kind-e2e.sh`.
 
 ## Pack design constraints (from README.md and pack-metadata.yaml)
 
 - Deploys the mem0 server, Postgres with pgvector, an admin API key in a Kubernetes Secret, and a
-  NetworkPolicy that admits only named callers (for Tapas, its gateway pods). The NetworkPolicy
-  is not in the chart yet.
+  NetworkPolicy that admits only named callers (for Tapas, its gateway pods).
 - mem0 has no per-user access control: any holder of the API key can read every person's
   memories. Protection rests on keeping the key secret and the network path closed. The calling
   service (Tapas first) scopes each request to a person. Do not add anything that widens either.
