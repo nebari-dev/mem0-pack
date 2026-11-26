@@ -28,6 +28,10 @@ on:
 
 jobs:
   release:
+    # Disabled until the pack has its own chart: the inputs below still point at
+    # the template's example chart, and a release would publish it as "my-pack".
+    # Re-enable when the first release is cut (nebari-dev/mem0-pack#12).
+    if: false
     uses: nebari-dev/.github/.github/workflows/pack-release.yaml@v1
     with:
       chart-path: examples/auth-fastapi/chart
