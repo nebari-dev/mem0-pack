@@ -10,5 +10,5 @@ deprecated: false
 nebariapp_integration: none
 scope:
   standalone-supported: yes
-demo_notes: "Experimental: not installable yet. Do not demo."
+demo_notes: "Experimental: prerelease charts only. Do not demo."
 docs_site: false

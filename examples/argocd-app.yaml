@@ -8,11 +8,9 @@ metadata:
 spec:
   project: nebari-apps
   source:
-    # No chart version is published to this repository until #12 is done, so this does not sync
-    # yet. Use the git source below until then.
     repoURL: https://nebari-dev.github.io/helm-repository
     chart: nebari-mem0
-    targetRevision: 0.1.0   # CHANGE to a published version
+    targetRevision: 0.1.0-alpha.1   # CHANGE to the version you want
     helm:
       valuesObject:
         # The contents of examples/nebari-values.yaml, with the placeholders filled in.
@@ -38,8 +36,8 @@ spec:
             tokenURL: https://keycloak.CHANGE.example.com/realms/nebari/protocol/openid-connect/token
             # Secret in the release namespace with keys client-id and client-secret, created before install.
             existingSecret: mem0-model-client
-    # Git source alternative until #12 publishes a chart. Replace the whole source block above with
-    # this one. A checkout has no pinned image tags, so set both to images CI pushed for that commit.
+    # Git source alternative, to run an unreleased commit. Replace the whole source block above
+    # with this one. A checkout has no pinned image tags, so set both to images CI pushed for that commit.
     # repoURL: https://github.com/nebari-dev/mem0-pack
     # path: chart
     # targetRevision: main   # CHANGE to the commit the tags below were built from
