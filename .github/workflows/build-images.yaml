@@ -18,11 +18,13 @@ on:
       - "examples/auth-fastapi/app/**"
       - "examples/auth-fastapi/Dockerfile"
       - ".github/workflows/build-images.yaml"
+      - "image/**"
       - "examples/auth-fastapi/chart/Chart.yaml"
   pull_request:
     paths:
       - "examples/auth-fastapi/app/**"
       - "examples/auth-fastapi/Dockerfile"
+      - "image/**"
   workflow_dispatch:
 
 jobs:
@@ -31,6 +33,16 @@ jobs:
     with:
       image: auth-fastapi-example
       context: examples/auth-fastapi
+      push: ${{ github.event_name != 'pull_request' }}
+    secrets:
+      QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+
+  server:
+    uses: nebari-dev/.github/.github/workflows/pack-build-image.yaml@v1
+    with:
+      image: server
+      context: image
       push: ${{ github.event_name != 'pull_request' }}
     secrets:
       QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
